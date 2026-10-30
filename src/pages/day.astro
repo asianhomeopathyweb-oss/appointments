@@ -1,0 +1,61 @@
+﻿---
+import AppLayout from "../layouts/AppLayout.astro";
+---
+<AppLayout title="Day">
+  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
+
+    <!-- Premium Floating Date Strip -->
+    <div class="flex items-center gap-3 mb-6 w-full">
+      <button id="day-prev" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+        <i class="bi bi-chevron-left text-[16px]"></i>
+      </button>
+
+      <!-- The Strip Container -->
+      <div id="day-strip" class="flex-1 flex gap-2 bg-white border border-hairline p-1.5 rounded-2xl shadow-sm overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <!-- Filled by JS -->
+      </div>
+
+      <button id="day-next" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+        <i class="bi bi-chevron-right text-[16px]"></i>
+      </button>
+    </div>
+
+    <!-- Table Header Info -->
+    <div class="flex items-center justify-between mb-4 px-2">
+      <div class="text-[22px] font-bold text-ink tracking-tight flex items-center gap-3">
+        <span id="day-date">—</span>
+        <span class="text-[13px] font-medium text-ink-faint px-3 py-1 bg-surface-hover rounded-full" id="day-sub">—</span>
+      </div>
+      <button id="day-today" class="text-[13px] font-bold text-accent hover:underline hidden">
+        Go to Today
+      </button>
+    </div>
+
+    <!-- Table Container -->
+    <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline">
+      <table class="w-full text-left border-collapse">
+        <thead class="sticky top-0 bg-surface-hover z-10 border-b border-hairline">
+          <tr>
+            <th class="px-6 py-4 text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[220px]">Time</th>
+            <th class="px-6 py-4 text-[12px] font-bold tracking-widest text-ink-mute uppercase">Patient</th>
+            <th class="px-6 py-4 text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[400px]">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="day-grid" class="divide-y divide-hairline">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    import { requireAuth } from "../js/lib/auth-guards.js";
+    import { startDayView } from "../js/day-view.js";
+
+    (async () => {
+      await requireAuth();
+      await startDayView();
+    })();
+  </script>
+</AppLayout>

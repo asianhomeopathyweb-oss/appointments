@@ -1,0 +1,24 @@
+{
+  "name": "appointments",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "tw": "tailwindcss -i ./assets/input.css -o ./public/assets/style.css --watch",
+    "tw:build": "tailwindcss -i ./css-src/input.css -o ./public/assets/style.css --minify"
+  },
+  "dependencies": {
+    "astro": "^4.15.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "@astrojs/tailwind": "^5.1.0"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true,
+    "esbuild@0.21.5": true
+  }
+}

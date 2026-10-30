@@ -1,0 +1,67 @@
+﻿---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Sign in">
+  <main class="min-h-screen grid place-items-center px-6">
+    <div class="w-full max-w-[360px]">
+      <div class="mb-8 text-center">
+        <div class="text-[12.5px] text-ink-faint mb-1">Asian Homeocare</div>
+        <h1 class="text-[22px] font-semibold">Appointments</h1>
+      </div>
+      <form id="login-form" class="space-y-3" novalidate>
+        <div>
+          <label for="email" class="block text-[12.5px] text-ink-mute mb-1">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required
+            class="w-full h-11 px-3 rounded-lg border border-hairline bg-white text-[14px] focus:outline-none focus:shadow-focus focus:border-accent" />
+        </div>
+        <div>
+          <label for="password" class="block text-[12.5px] text-ink-mute mb-1">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required
+            class="w-full h-11 px-3 rounded-lg border border-hairline bg-white text-[14px] focus:outline-none focus:shadow-focus focus:border-accent" />
+        </div>
+        <p id="err" hidden class="text-[13px] text-[#b91c1c]" role="alert"></p>
+        <button id="submit" type="submit"
+          class="w-full h-11 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+          Sign in
+        </button>
+      </form>
+      <p id="no-profile" hidden class="mt-6 text-[12.5px] text-ink-mute text-center leading-relaxed">
+        Your account has no profile in this system.<br />
+        Contact the clinic admin.
+      </p>
+    </div>
+  </main>
+  <script>
+    import { signIn } from '../js/lib/auth.js';
+    const params = new URLSearchParams(location.search);
+    const form = document.getElementById('login-form');
+    const emailEl = document.getElementById('email');
+    const passEl = document.getElementById('password');
+    const errEl = document.getElementById('err');
+    const btn = document.getElementById('submit');
+    const noProfile = document.getElementById('no-profile');
+    if (params.get('error') === 'no-profile') noProfile.hidden = false;
+    const showError = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
+    const setBusy = (busy) => { btn.disabled = busy; btn.textContent = busy ? 'Signing in…' : 'Sign in'; };
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.hidden = true;
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      if (!email || !password) { showError('Enter your email and password.'); return; }
+      setBusy(true);
+      try {
+        await signIn(email, password);
+        const next = params.get('next') || '/day';
+        location.replace(next);
+      } catch (err) {
+        const code = err?.code || '';
+        if (code === 'auth/too-many-requests') showError('Too many attempts. Try again in a minute.');
+        else if (code === 'auth/network-request-failed') showError('Network error. Check your connection.');
+        else showError('Incorrect email or password.');
+        setBusy(false);
+      }
+    });
+    if (window.matchMedia('(min-width: 768px)').matches) emailEl.focus();
+  </script>
+</BaseLayout>

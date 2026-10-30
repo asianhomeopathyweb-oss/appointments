@@ -1,0 +1,41 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+---
+<AppLayout title="Patient">
+  <div class="max-w-[860px]">
+
+    <div class="px-4 md:px-6 py-4 border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10">
+      <div class="flex items-start gap-3">
+        <div class="flex-1 min-w-0">
+          <div id="pt-name" class="text-[18px] font-semibold truncate">—</div>
+          <div id="pt-phone" class="text-[12.5px] text-ink-mute truncate">—</div>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button id="pt-book" type="button"
+            class="h-9 px-3.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors">
+            <i class="bi bi-plus-lg text-[11px]" aria-hidden="true"></i>
+            Book
+          </button>
+          <button id="pt-call" type="button"
+            class="h-9 px-3.5 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors">
+            <i class="bi bi-telephone text-[11px]" aria-hidden="true"></i>
+            Call
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pt-sections"></div>
+
+  </div>
+
+  <script>
+    import { requireAuth } from '../js/lib/auth-guards.js';
+    import { startPatientView } from '../js/patient-view.js';
+
+    (async () => {
+      await requireAuth();
+      await startPatientView();
+    })();
+  </script>
+</AppLayout>

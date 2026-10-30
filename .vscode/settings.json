@@ -1,0 +1,1 @@
+{ "files.exclude": { "**/.git": true, "**/node_modules": true, "**/dist": true, "**/.astro": true }, "files.watcherExclude": { "**/node_modules/**": true, "**/dist/**": true, "**/.astro/**": true } }

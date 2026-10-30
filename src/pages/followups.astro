@@ -1,0 +1,212 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+---
+<AppLayout title="Follow-ups">
+  <div class="max-w-[860px]">
+
+    <div class="px-4 md:px-6 py-4 border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10">
+      <div class="flex items-center gap-2">
+        <button id="fu-prev" type="button" aria-label="Previous day"
+          class="w-9 h-9 grid place-items-center rounded-lg hover:bg-surface-hover">
+          <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </button>
+        <div class="flex-1 min-w-0 text-center relative">
+          <button id="fu-date-btn" type="button"
+            class="text-[17px] font-semibold hover:text-accent">
+            <span id="fu-date">—</span>
+          </button>
+          <div class="text-[12.5px] text-ink-mute">
+            <span id="fu-clinic">—</span>
+            <span class="mx-1">·</span>
+            <span id="fu-sub">—</span>
+          </div>
+          <input id="fu-date-input" type="date" class="absolute opacity-0 pointer-events-none w-px h-px -z-10" />
+        </div>
+        <button id="fu-today" type="button"
+          class="h-8 px-3 rounded-full bg-accent-soft text-accent text-[12.5px] font-medium hidden">
+          Today
+        </button>
+        <button id="fu-next" type="button" aria-label="Next day"
+          class="w-9 h-9 grid place-items-center rounded-lg hover:bg-surface-hover">
+          <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div id="fu-strip"
+        class="mt-3 flex gap-1.5 overflow-x-auto -mx-4 md:-mx-6 px-4 md:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"></div>
+    </div>
+
+    <div id="fu-list"></div>
+
+  </div>
+
+  <script>
+    import { requireAuth } from '../js/lib/auth-guards.js';
+    import { getActiveClinicId, getActiveClinic } from '../js/lib/clinic-context.js';
+    import { listForDate, listDue } from '../js/followups.js';
+    import { todayISO, addDays, fmtDate, fmtDayShort, isToday } from '../js/date-utils.js';
+
+    const $ = (sel) => document.querySelector(sel);
+
+    const state = {
+      clinicId: null,
+      clinic: null,
+      dateISO: todayISO(),
+      items: [],
+      markers: new Set()
+    };
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .split('&').join('&amp;')
+        .split('<').join('&lt;')
+        .split('>').join('&gt;')
+        .split('"').join('&quot;')
+        .split("'").join('&#39;');
+    }
+
+    function renderHeader() {
+      const dateEl = $('#fu-date');
+      const clinicEl = $('#fu-clinic');
+      const subEl = $('#fu-sub');
+      const todayBtn = $('#fu-today');
+
+      if (dateEl) dateEl.textContent = fmtDate(state.dateISO);
+      if (clinicEl && state.clinic) clinicEl.textContent = state.clinic.name;
+      if (subEl) subEl.textContent = state.items.length === 0 ? 'No follow-ups' : `${state.items.length} follow-up${state.items.length === 1 ? '' : 's'}`;
+      if (todayBtn) todayBtn.hidden = isToday(state.dateISO);
+    }
+
+    function renderStrip() {
+      const root = $('#fu-strip');
+      if (!root) return;
+      const days = [];
+      for (let i = 0; i < 7; i++) days.push(addDays(state.dateISO, i));
+
+      root.innerHTML = days.map((iso) => {
+        const selected = iso === state.dateISO;
+        const today = isToday(iso);
+        const has = state.markers.has(iso);
+        const dayName = fmtDayShort(iso);
+        const num = iso.slice(8, 10).replace(/^0/, '');
+        const cls = selected
+          ? 'bg-accent text-white border-accent'
+          : today
+            ? 'bg-accent-soft text-accent border-accent-soft'
+            : 'bg-white text-ink border-hairline hover:border-accent';
+        return `
+          <button type="button" data-day="${iso}"
+            class="shrink-0 w-[58px] h-[58px] rounded-xl border ${cls} flex flex-col items-center justify-center transition-colors">
+            <span class="text-[11px] opacity-80">${esc(dayName)}</span>
+            <span class="text-[15px] font-semibold tnum">${esc(num)}</span>
+            <span class="block w-1 h-1 rounded-full mt-0.5 ${has ? (selected ? 'bg-white' : 'bg-accent') : 'bg-transparent'}"></span>
+          </button>`;
+      }).join('');
+
+      root.querySelectorAll('[data-day]').forEach((el) => {
+        el.addEventListener('click', () => goDate(el.getAttribute('data-day')));
+      });
+    }
+
+    function renderList() {
+      const root = $('#fu-list');
+      if (!root) return;
+
+      if (state.items.length === 0) {
+        root.innerHTML = `
+          <div class="p-10 text-center">
+            <div class="text-[14px] text-ink-mute mb-1">No follow-ups due on this date.</div>
+            <div class="text-[12.5px] text-ink-faint">Try another day using the arrows or strip above.</div>
+          </div>`;
+        return;
+      }
+
+      root.innerHTML = state.items.map((f) => `
+        <div data-fu-id="${esc(f.id)}"
+          class="flex items-center gap-3 px-4 md:px-6 h-[64px] border-b border-hairline hover:bg-surface-hover cursor-pointer">
+          <div class="flex-1 min-w-0">
+            <div class="text-[14.5px] font-medium truncate">${esc(f.patientName || 'Patient')}</div>
+            <div class="text-[12.5px] text-ink-mute truncate">
+              ${esc(f.patientPhone || '')}
+              ${f.seenOn ? `<span class="mx-1 text-ink-faint">·</span>seen ${esc(fmtDate(f.seenOn))}` : ''}
+            </div>
+          </div>
+          <div class="shrink-0 text-ink-faint">
+            <i class="bi bi-chevron-right text-[13px]" aria-hidden="true"></i>
+          </div>
+        </div>`).join('');
+
+      root.querySelectorAll('[data-fu-id]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const id = el.getAttribute('data-fu-id');
+          location.href = `/followup?id=${encodeURIComponent(id)}`;
+        });
+      });
+    }
+
+    async function load() {
+      try {
+        state.items = await listForDate(state.clinicId, state.dateISO);
+      } catch (err) {
+        console.error('[followups] list failed:', err);
+        state.items = [];
+      }
+      await loadMarkers();
+      renderHeader();
+      renderStrip();
+      renderList();
+    }
+
+    async function loadMarkers() {
+      try {
+        const all = await listDue(state.clinicId, addDays(state.dateISO, 90));
+        state.markers = new Set(all.map((x) => x.dueDate));
+      } catch {
+        state.markers = new Set();
+      }
+    }
+
+    function goDate(iso) {
+      state.dateISO = iso;
+      const url = new URL(location.href);
+      url.searchParams.set('date', iso);
+      history.replaceState(null, '', url);
+      load();
+    }
+
+    function wireNav() {
+      const prev = $('#fu-prev');
+      const next = $('#fu-next');
+      const today = $('#fu-today');
+      const dateBtn = $('#fu-date-btn');
+      const dateInput = $('#fu-date-input');
+
+      if (prev) prev.addEventListener('click', () => goDate(addDays(state.dateISO, -1)));
+      if (next) next.addEventListener('click', () => goDate(addDays(state.dateISO, 1)));
+      if (today) today.addEventListener('click', () => goDate(todayISO()));
+      if (dateBtn && dateInput) {
+        dateBtn.addEventListener('click', () => {
+          dateInput.value = state.dateISO;
+          if (typeof dateInput.showPicker === 'function') dateInput.showPicker();
+          else dateInput.click();
+        });
+        dateInput.addEventListener('change', () => {
+          if (dateInput.value) goDate(dateInput.value);
+        });
+      }
+    }
+
+    (async () => {
+      await requireAuth();
+      state.clinicId = getActiveClinicId();
+      state.clinic = await getActiveClinic();
+
+      const p = new URLSearchParams(location.search);
+      const d = p.get('date');
+      if (d) state.dateISO = d;
+
+      wireNav();
+      await load();
+    })();
+  </script>
+</AppLayout>

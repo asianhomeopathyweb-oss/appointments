@@ -1,0 +1,206 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    function meExists() {
+      return isLoggedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return meExists() && me().isActive != false;
+    }
+
+    function isAdmin() {
+      return meExists() && me().role == 'admin';
+    }
+
+    function canReadDoc() {
+      return isActive() && (
+        isAdmin() ||
+        resource == null ||
+        resource.data.clinicId in me().clinicIds
+      );
+    }
+
+    function canCreateDoc() {
+      return isActive() && (
+        isAdmin() ||
+        request.resource.data.clinicId in me().clinicIds
+      );
+    }
+
+    function canWriteDoc() {
+      return isActive()
+        && (isAdmin() || resource == null || resource.data.clinicId in me().clinicIds)
+        && (isAdmin() || request.resource.data.clinicId in me().clinicIds);
+    }
+
+    function isValidClinicSlug(slug) {
+      return slug.matches('^ah-[a-z]{3,5}$');
+    }
+
+    function hasRequiredClinicFields() {
+      return request.resource.data.keys().hasAll([
+        'slug', 'name', 'shortName', 'invoiceName',
+        'invoicePrefix', 'cityCode', 'address', 'active'
+      ]);
+    }
+
+    // ============================================================
+    // CLINICS
+    // ============================================================
+    match /clinics/{clinicId} {
+      allow read:   if isActive() && (isAdmin() || clinicId in me().clinicIds);
+      allow create: if isAdmin()
+                    && isValidClinicSlug(clinicId)
+                    && hasRequiredClinicFields()
+                    && request.resource.data.slug == clinicId;
+      allow update: if isAdmin()
+                    && clinicId in me().clinicIds
+                    && request.resource.data.slug == resource.data.slug;
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // USERS
+    // ============================================================
+    match /users/{uid} {
+      allow read: if isLoggedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /staff/{uid} {
+      allow read: if isLoggedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ============================================================
+    // BUSINESS COLLECTIONS
+    // ============================================================
+
+    match /invoices/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow delete: if isAdmin() && canWriteDoc();
+      allow update: if isAdmin() && canWriteDoc();
+      allow update: if canWriteDoc()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['payments', 'totalReceived', 'balance', 'paymentStatus', 'updatedAt']);
+    }
+
+    match /transactions/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update, delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /patients/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update, delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /products/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update, delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /accounts/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update: if canWriteDoc();
+      allow delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /expenses/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update, delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /activityLog/{id} {
+      allow read:   if isAdmin() && canReadDoc();
+      allow create: if canCreateDoc();
+      allow update, delete: if isAdmin() && canWriteDoc();
+    }
+
+    // ============================================================
+    // ★ CASE PAPERS
+    // ============================================================
+    match /casePapers/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update: if canWriteDoc();
+      allow delete: if isAdmin() && canWriteDoc();
+    }
+
+    // ============================================================
+    // ★ APPOINTMENTS — scheduling collections
+    // ============================================================
+    match /appointments/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update: if canWriteDoc();
+      allow delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /followUps/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update: if canWriteDoc();
+      allow delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /calls/{id} {
+      allow read:   if canReadDoc();
+      allow create: if canCreateDoc();
+      allow update: if canWriteDoc();
+      allow delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /clinicSchedule/{clinicId} {
+      allow read:   if isActive() && (isAdmin() || clinicId in me().clinicIds);
+      allow create, update: if isAdmin() && clinicId in me().clinicIds;
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // YEAR-END LOG + COUNTERS + SETTINGS (unchanged)
+    // ============================================================
+    match /year_end_log/{id} {
+      allow read:   if canReadDoc();
+      allow create: if isAdmin() && canCreateDoc();
+      allow update, delete: if isAdmin() && canWriteDoc();
+    }
+
+    match /counters/{id} {
+      allow read, write: if isActive();
+    }
+
+    match /settings/{id} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // DEFAULT DENY
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

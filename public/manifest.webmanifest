@@ -1,0 +1,12 @@
+﻿{
+  "name": "Appointments — Asian Homeocare",
+  "short_name": "Appointments",
+  "description": "Scheduling register for Asian Homeocare clinic.",
+  "start_url": "/day",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0d8a7a",
+  "lang": "en-IN"
+}

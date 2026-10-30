@@ -1,0 +1,119 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+---
+<AppLayout title="Reports">
+  <div class="p-6 md:p-8 max-w-[860px]">
+    
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div>
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Dashboard</div>
+        <div class="text-[22px] font-semibold">Reports</div>
+      </div>
+      <select id="report-range" class="h-10 px-3 rounded-lg border border-hairline text-[13px] bg-white outline-none focus:border-accent">
+        <option value="7">Last 7 days</option>
+        <option value="30" selected>Last 30 days</option>
+        <option value="90">Last 90 days</option>
+        <option value="365">Last 1 year</option>
+      </select>
+    </div>
+
+    <!-- New Patients Section -->
+    <div class="mb-10">
+      <div class="text-[15px] font-medium mb-4">New Patients</div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="p-4 bg-white border border-hairline rounded-xl">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Total New</div>
+          <div id="rp-np-total" class="text-[24px] font-semibold tnum">—</div>
+        </div>
+      </div>
+      <div class="bg-white border border-hairline rounded-xl overflow-hidden">
+        <div class="px-5 py-3 border-b border-hairline bg-surface-hover/50 text-[12px] font-medium text-ink-mute">By Referral Source</div>
+        <div id="rp-referrals" class="divide-y divide-hairline"></div>
+      </div>
+    </div>
+
+    <!-- Follow-ups Section -->
+    <div>
+      <div class="text-[15px] font-medium mb-4">Follow-ups</div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="p-4 bg-white border border-hairline rounded-xl">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Total</div>
+          <div id="rp-fu-total" class="text-[24px] font-semibold tnum">—</div>
+        </div>
+        <div class="p-4 bg-white border border-hairline rounded-xl">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Pending</div>
+          <div id="rp-fu-pending" class="text-[24px] font-semibold tnum text-accent">—</div>
+        </div>
+        <div class="p-4 bg-white border border-hairline rounded-xl">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Overdue</div>
+          <div id="rp-fu-overdue" class="text-[24px] font-semibold tnum text-red-600">—</div>
+        </div>
+        <div class="p-4 bg-white border border-hairline rounded-xl">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Completion Rate</div>
+          <div id="rp-fu-rate" class="text-[24px] font-semibold tnum">—</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    import { requireAuth, isAdmin } from '../../js/lib/auth-guards.js';
+    import { fetchNewPatients, fetchFollowupStats, wireDateRange } from '../../js/reports.js';
+
+    const $ = (sel) => document.querySelector(sel);
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
+        .split('"').join('&quot;').split("'").join('&#39;');
+    }
+
+    (async () => {
+      await requireAuth();
+      if (!isAdmin()) { location.replace('/day'); return; }
+
+      wireDateRange(async (start, end) => {
+        // Set loading states
+        $('#rp-np-total').textContent = '...';
+        $('#rp-fu-total').textContent = '...';
+        $('#rp-fu-pending').textContent = '...';
+        $('#rp-fu-overdue').textContent = '...';
+        $('#rp-fu-rate').textContent = '...';
+        $('#rp-referrals').innerHTML = '<div class="p-4 text-center text-ink-mute text-[12.5px]">Loading...</div>';
+
+        try {
+          // Fetch both concurrently for speed
+          const [npData, fuData] = await Promise.all([
+            fetchNewPatients(start, end),
+            fetchFollowupStats(start, end)
+          ]);
+
+          // Render New Patients
+          $('#rp-np-total').textContent = npData.total;
+          const refs = Object.entries(npData.referrals).sort((a, b) => b[1] - a[1]);
+          if (refs.length === 0) {
+            $('#rp-referrals').innerHTML = '<div class="p-4 text-center text-ink-mute text-[12.5px]">No new patients in this period.</div>';
+          } else {
+            $('#rp-referrals').innerHTML = refs.map(([name, count]) => `
+              <div class="flex items-center justify-between px-5 py-2.5">
+                <div class="text-[13px] text-ink">${esc(name)}</div>
+                <div class="text-[13px] font-medium tnum">${count}</div>
+              </div>
+            `).join('');
+          }
+
+          // Render Follow-ups
+          $('#rp-fu-total').textContent = fuData.total;
+          $('#rp-fu-pending').textContent = fuData.pending;
+          $('#rp-fu-overdue').textContent = fuData.overdue;
+          $('#rp-fu-rate').textContent = fuData.completionRate + '%';
+
+        } catch (err) {
+          console.error('Report load failed:', err);
+          $('#rp-referrals').innerHTML = '<div class="p-4 text-center text-red-500 text-[12.5px]">Failed to load.</div>';
+        }
+      });
+    })();
+  </script>
+</AppLayout>

@@ -1,0 +1,403 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+---
+<AppLayout title="Dashboard">
+  <div class="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div>
+        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Overview</div>
+        <div class="text-[24px] font-bold text-ink tracking-tight">Dashboard</div>
+      </div>
+      
+      <!-- Central Filter -->
+      <div class="relative w-full md:w-auto">
+        <select id="dash-filter" class="w-full md:w-[200px] h-10 px-4 rounded-xl border border-hairline bg-white text-[13px] font-semibold text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all shadow-sm appearance-none cursor-pointer">
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="tomorrow">Tomorrow</option>
+          <option value="this_week">This Week</option>
+          <option value="last_week">Last Week</option>
+          <option value="last_7">Last 7 Days</option>
+          <option value="last_15">Last 15 Days</option>
+          <option value="last_21">Last 21 Days</option>
+          <option value="this_month">This Month</option>
+          <option value="last_month">Last Month</option>
+          <option value="this_quarter">This Quarter</option>
+          <option value="last_quarter">Last Quarter</option>
+          <option value="this_year">This Year</option>
+          <option value="last_year">Last Year</option>
+          <option value="last_365">Last 365 Days</option>
+        </select>
+        <i class="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ink-mute text-[12px] pointer-events-none"></i>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="dash-loading" class="hidden fixed inset-0 bg-surface/80 backdrop-blur-sm z-50 flex items-center justify-center">
+      <div class="w-10 h-10 border-4 border-accent/20 border-t-accent rounded-full animate-spin"></div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1 min-h-0">
+      
+      <!-- LEFT: Lists (Tabs for Appointments / Calls) -->
+      <div class="lg:col-span-5 flex flex-col bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden h-[400px] lg:h-full">
+        
+        <!-- Tabs -->
+        <div class="flex border-b border-hairline bg-surface-hover/30 shrink-0">
+          <button id="tab-appts" class="flex-1 py-3 text-[11px] font-bold tracking-widest text-ink uppercase border-b-2 border-accent transition-colors">Appointments</button>
+          <button id="tab-calls" class="flex-1 py-3 text-[11px] font-bold tracking-widest text-ink-mute uppercase border-b-2 border-transparent hover:text-ink transition-colors">Calls</button>
+        </div>
+
+        <!-- List Container -->
+        <div id="dash-list" class="flex-1 overflow-y-auto divide-y divide-hairline">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- RIGHT: Metrics & Charts -->
+      <div class="lg:col-span-7 flex flex-col gap-4 md:gap-6 overflow-y-auto pr-1 pb-4">
+        
+        <!-- Metrics Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between">
+            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-3">Total Appts</div>
+            <div id="stat-total" class="text-[28px] md:text-[32px] font-extrabold text-ink tracking-tight tnum leading-none">—</div>
+          </div>
+          
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between">
+            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-3">Seen</div>
+            <div id="stat-seen" class="text-[28px] md:text-[32px] font-extrabold text-emerald-600 tracking-tight tnum leading-none">—</div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between">
+            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-3">New Pts</div>
+            <div id="stat-new" class="text-[28px] md:text-[32px] font-extrabold text-blue-600 tracking-tight tnum leading-none">—</div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute inset-0 bg-orange-50/50"></div>
+            <div class="relative z-10">
+              <div class="text-[10px] font-bold tracking-widest text-orange-600 uppercase mb-3">Follow-ups</div>
+              <div id="stat-fu" class="text-[28px] md:text-[32px] font-extrabold text-orange-600 tracking-tight tnum leading-none">—</div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute inset-0 bg-pink-50/50"></div>
+            <div class="relative z-10">
+              <div class="text-[10px] font-bold tracking-widest text-pink-600 uppercase mb-3">Calls</div>
+              <div id="stat-calls" class="text-[28px] md:text-[32px] font-extrabold text-pink-600 tracking-tight tnum leading-none">—</div>
+            </div>
+          </div>
+
+          <div class="hidden md:block bg-surface-hover/30 rounded-2xl border border-hairline border-dashed"></div>
+        </div>
+
+        <!-- Weekly Trend Chart -->
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 md:p-6">
+          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-5">Weekly Trend</div>
+          <div id="dash-trend" class="h-[120px] flex items-end justify-between gap-1 md:gap-2">
+            <!-- Filled by JS -->
+          </div>
+        </div>
+
+        <!-- New vs Returning -->
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 md:p-6">
+          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-5">Patient Mix</div>
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center justify-between text-[13px]">
+              <span class="text-ink-mute font-medium">New Patients</span>
+              <span id="mix-new" class="font-bold text-ink tnum">—</span>
+            </div>
+            <div class="w-full h-3 bg-surface-hover rounded-full overflow-hidden flex">
+              <div id="mix-bar-new" class="h-full bg-blue-500 transition-all duration-500" style="width: 0%"></div>
+              <div id="mix-bar-returning" class="h-full bg-accent transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <div class="flex items-center justify-between text-[13px]">
+              <span class="text-ink-mute font-medium">Returning</span>
+              <span id="mix-returning" class="font-bold text-ink tnum">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+          <a href="/book" class="h-12 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+            <i class="bi bi-plus-lg"></i> Book Appointment
+          </a>
+          <a href="/followups" class="h-12 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+            <i class="bi bi-arrow-repeat"></i> Follow-ups
+          </a>
+          <a href="/calls" class="h-12 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+            <i class="bi bi-telephone"></i> Calls
+          </a>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    import { requireAuth, isAdmin } from '../js/lib/auth-guards.js';
+    import { getActiveClinicId } from '../js/lib/clinic-context.js';
+    import { todayISO, addDays, fmtDate, fmtSlot, isoToDate } from '../js/date-utils.js';
+    import { collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+    import { db } from '../js/lib/firebase-init.js';
+
+    const $ = (sel) => document.querySelector(sel);
+    
+    let state = {
+      clinicId: null,
+      appointments: [],
+      followUps: [],
+      calls: [],
+      patients: [],
+      currentRange: { start: '', end: '', label: 'Today' },
+      currentTab: 'appts'
+    };
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
+        .split('"').join('&quot;').split("'").join('&#39;');
+    }
+
+    function getDateRange(filterVal) {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = today.getMonth();
+      const d = today.getDate();
+      
+      const fmt = (dateObj) => {
+        const yy = dateObj.getFullYear();
+        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(dateObj.getDate()).padStart(2, '0');
+        return `${yy}-${mm}-${dd}`;
+      };
+      
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(d - today.getDay());
+      
+      switch(filterVal) {
+        case 'today': return { start: fmt(today), end: fmt(today), label: 'Today' };
+        case 'yesterday': { const yd = new Date(today); yd.setDate(d - 1); return { start: fmt(yd), end: fmt(yd), label: 'Yesterday' }; }
+        case 'tomorrow': { const tm = new Date(today); tm.setDate(d + 1); return { start: fmt(tm), end: fmt(tm), label: 'Tomorrow' }; }
+        case 'this_week': { const end = new Date(startOfWeek); end.setDate(startOfWeek.getDate() + 6); return { start: fmt(startOfWeek), end: fmt(end), label: 'This Week' }; }
+        case 'last_week': { const start = new Date(startOfWeek); start.setDate(start.getDate() - 7); const end = new Date(start); end.setDate(start.getDate() + 6); return { start: fmt(start), end: fmt(end), label: 'Last Week' }; }
+        case 'last_7': { const start = new Date(today); start.setDate(d - 6); return { start: fmt(start), end: fmt(today), label: 'Last 7 Days' }; }
+        case 'last_15': { const start = new Date(today); start.setDate(d - 14); return { start: fmt(start), end: fmt(today), label: 'Last 15 Days' }; }
+        case 'last_21': { const start = new Date(today); start.setDate(d - 20); return { start: fmt(start), end: fmt(today), label: 'Last 21 Days' }; }
+        case 'this_month': { const start = new Date(y, m, 1); const end = new Date(y, m + 1, 0); return { start: fmt(start), end: fmt(end), label: 'This Month' }; }
+        case 'last_month': { const start = new Date(y, m - 1, 1); const end = new Date(y, m, 0); return { start: fmt(start), end: fmt(end), label: 'Last Month' }; }
+        case 'this_quarter': { const q = Math.floor(m / 3); const start = new Date(y, q * 3, 1); const end = new Date(y, (q + 1) * 3, 0); return { start: fmt(start), end: fmt(end), label: 'This Quarter' }; }
+        case 'last_quarter': { const q = Math.floor(m / 3) - 1; const start = new Date(y, q * 3, 1); const end = new Date(y, (q + 1) * 3, 0); return { start: fmt(start), end: fmt(end), label: 'Last Quarter' }; }
+        case 'this_year': return { start: `${y}-01-01`, end: `${y}-12-31`, label: 'This Year' };
+        case 'last_year': return { start: `${y-1}-01-01`, end: `${y-1}-12-31`, label: 'Last Year' };
+        case 'last_365': { const start = new Date(today); start.setDate(d - 364); return { start: fmt(start), end: fmt(today), label: 'Last 365 Days' }; }
+        default: return { start: fmt(today), end: fmt(today), label: 'Today' };
+      }
+    }
+
+    async function loadData() {
+      $('#dash-loading').classList.remove('hidden');
+      try {
+        const cId = state.clinicId;
+        const [appts, fus, cls, pats] = await Promise.all([
+          getDocs(query(collection(db, 'appointments'), where('clinicId', '==', cId))),
+          getDocs(query(collection(db, 'followUps'), where('clinicId', '==', cId))),
+          getDocs(query(collection(db, 'calls'), where('clinicId', '==', cId))),
+          getDocs(query(collection(db, 'patients'), where('clinicId', '==', cId)))
+        ]);
+        
+        state.appointments = appts.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
+        state.followUps = fus.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
+        state.calls = cls.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
+        state.patients = pats.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        $('#dash-loading').classList.add('hidden');
+      }
+    }
+
+    function renderList() {
+      const list = $('#dash-list');
+      const { start, end } = state.currentRange;
+      
+      if (state.currentTab === 'appts') {
+        const rangeAppts = state.appointments.filter(a => a.date >= start && a.date <= end);
+        
+        if (rangeAppts.length === 0) {
+          list.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No appointments in this range.</div>`;
+          return;
+        }
+        
+        rangeAppts.sort((a, b) => (a.date + a.slot).localeCompare(b.date + b.slot));
+        list.innerHTML = rangeAppts.map(a => `
+          <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='/appointment?id=${a.id}'">
+            <div class="w-[70px] shrink-0">
+              <div class="text-[12px] font-bold text-ink tnum">${fmtSlot(a.slot)}</div>
+              <div class="text-[10px] text-ink-faint tnum">${fmtDate(a.date)}</div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13.5px] font-semibold text-ink truncate">${esc(a.patientName)}</div>
+              <div class="flex gap-1 mt-0.5">
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${a.mode === 'call' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}">${a.mode || 'Visit'}</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${a.status === 'seen' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-hover text-ink-mute'}">${a.status}</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+        
+      } else {
+        // Render Calls
+        const rangeCalls = state.calls.filter(c => {
+          if (!c.createdAt) return false;
+          const cDate = new Date(c.createdAt.seconds * 1000);
+          const iso = cDate.toISOString().split('T')[0];
+          return iso >= start && iso <= end;
+        });
+        
+        if (rangeCalls.length === 0) {
+          list.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No calls in this range.</div>`;
+          return;
+        }
+        
+        rangeCalls.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+        
+        list.innerHTML = rangeCalls.map(c => {
+          const cDate = new Date(c.createdAt.seconds * 1000);
+          const timeStr = `${String(cDate.getHours()).padStart(2,'0')}:${String(cDate.getMinutes()).padStart(2,'0')}`;
+          const dateStr = `${String(cDate.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cDate.getMonth()]}`;
+          
+          return `
+            <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='/call?id=${c.id}'">
+              <div class="w-[70px] shrink-0">
+                <div class="text-[12px] font-bold text-ink tnum">${timeStr}</div>
+                <div class="text-[10px] text-ink-faint tnum">${dateStr}</div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-[13.5px] font-semibold text-ink truncate">${esc(c.patientName)}</div>
+                <div class="text-[11px] text-ink-mute truncate">${esc(c.reason || 'No reason')}</div>
+              </div>
+              <div class="shrink-0">
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${c.status === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-surface-hover text-ink-mute'}">${c.status}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    function render() {
+      const { start, end } = state.currentRange;
+      const today = todayISO();
+
+      // 1. Metrics
+      const rangeAppts = state.appointments.filter(a => a.date >= start && a.date <= end);
+      
+      const total = rangeAppts.length;
+      const seen = rangeAppts.filter(a => a.status === 'seen').length;
+      const newPts = rangeAppts.filter(a => a.type === 'new').length;
+      
+      const pendingFu = state.followUps.filter(f => f.dueDate >= start && f.dueDate <= end && f.status === 'pending').length;
+      
+      const pendingCalls = state.calls.filter(c => {
+        if (!c.createdAt || c.status !== 'pending') return false;
+        const cDate = new Date(c.createdAt.seconds * 1000);
+        const iso = cDate.toISOString().split('T')[0];
+        return iso >= start && iso <= end;
+      }).length;
+
+      $('#stat-total').textContent = total;
+      $('#stat-seen').textContent = seen;
+      $('#stat-new').textContent = newPts;
+      $('#stat-fu').textContent = pendingFu;
+      $('#stat-calls').textContent = pendingCalls;
+
+      // 2. Lists
+      renderList();
+
+      // 3. Weekly Trend
+      const trendEl = $('#dash-trend');
+      const last7 = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = addDays(today, -i);
+        const count = state.appointments.filter(a => a.date === d).length;
+        last7.push({ date: d, count });
+      }
+      const maxTrend = Math.max(...last7.map(x => x.count), 1);
+      
+      trendEl.innerHTML = last7.map(t => {
+        const h = (t.count / maxTrend) * 100;
+        const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][isoToDate(t.date).getDay()];
+        return `
+          <div class="flex-1 flex flex-col items-center justify-end h-full gap-1 group">
+            <div class="text-[10px] font-bold text-ink-mute opacity-0 group-hover:opacity-100 transition-opacity mb-1">${t.count}</div>
+            <div class="w-full bg-accent/20 rounded-t-sm group-hover:bg-accent transition-colors" style="height: ${h}%; min-height: ${t.count > 0 ? '4px' : '0'};"></div>
+            <div class="text-[10px] font-medium text-ink-faint">${day}</div>
+          </div>`;
+      }).join('');
+
+      // 4. New vs Returning Mix
+      let newCount = 0;
+      let returningCount = 0;
+      
+      const uniquePatients = new Set(rangeAppts.map(a => a.patientId));
+      uniquePatients.forEach(pId => {
+        const apptsForP = rangeAppts.filter(a => a.patientId === pId);
+        const isNew = apptsForP.some(a => a.type === 'new');
+        if (isNew) newCount++;
+        else returningCount++;
+      });
+      
+      const totalUnique = newCount + returningCount || 1;
+      const newPct = Math.round((newCount / totalUnique) * 100);
+      const retPct = 100 - newPct;
+
+      $('#mix-new').textContent = newCount;
+      $('#mix-returning').textContent = returningCount;
+      $('#mix-bar-new').style.width = `${newPct}%`;
+      $('#mix-bar-returning').style.width = `${retPct}%`;
+    }
+
+    (async () => {
+      const user = await requireAuth();
+      if (!isAdmin()) { location.replace('/day'); return; }
+      
+      state.clinicId = getActiveClinicId();
+      await loadData();
+      
+      const filterEl = $('#dash-filter');
+      filterEl.addEventListener('change', () => {
+        state.currentRange = getDateRange(filterEl.value);
+        render();
+      });
+
+      // Tabs
+      const tabAppts = $('#tab-appts');
+      const tabCalls = $('#tab-calls');
+
+      tabAppts.addEventListener('click', () => {
+        state.currentTab = 'appts';
+        tabAppts.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink uppercase border-b-2 border-accent transition-colors';
+        tabCalls.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink-mute uppercase border-b-2 border-transparent hover:text-ink transition-colors';
+        renderList();
+      });
+
+      tabCalls.addEventListener('click', () => {
+        state.currentTab = 'calls';
+        tabCalls.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink uppercase border-b-2 border-accent transition-colors';
+        tabAppts.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink-mute uppercase border-b-2 border-transparent hover:text-ink transition-colors';
+        renderList();
+      });
+      
+      state.currentRange = getDateRange('today');
+      render();
+    })();
+  </script>
+</AppLayout>

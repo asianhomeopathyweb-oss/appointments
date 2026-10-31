@@ -52,6 +52,11 @@ const path = Astro.url.pathname;
     <!-- Desktop Sidebar -->
     <aside class="hidden md:flex w-[220px] flex-col border-r border-hairline bg-white overflow-y-auto shrink-0">
       <nav class="flex flex-col gap-0.5 p-2 flex-1" aria-label="Main">
+        <!-- Dashboard (Admin Only) -->
+        <a href="/dashboard" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/dashboard' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+          <i class="bi bi-grid text-[15px]"></i> <span>Dashboard</span>
+        </a>
+
         <a href="/day" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/day' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
           <i class="bi bi-calendar3 text-[15px]"></i> <span>Day</span>
         </a>
@@ -99,6 +104,11 @@ const path = Astro.url.pathname;
           </button>
         </div>
         <nav class="flex flex-col gap-0.5 p-2 flex-1 overflow-y-auto" aria-label="Mobile Main">
+          <!-- Dashboard (Admin Only - Mobile) -->
+          <a href="/dashboard" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/dashboard' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+            <i class="bi bi-grid text-[15px]"></i> <span>Dashboard</span>
+          </a>
+
           <a href="/day" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/day' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
             <i class="bi bi-calendar3 text-[15px]"></i> <span>Day</span>
           </a>

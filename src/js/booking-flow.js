@@ -24,7 +24,6 @@ const state = {
   slots: [],
   existingBySlot: {},
   patient: null,
-  patientHistory: [],
   type: 'followup',
   mode: 'visit',
   saving: false,
@@ -93,9 +92,8 @@ async function selectPatient(patient) {
   // Fetch history for smart defaults + context
   try {
     const history = await listForPatient(state.clinicId, patient.id);
-    state.patientHistory = history || [];
-
-    if (state.patientHistory.length > 0) {
+    
+    if (history && history.length > 0) {
       state.type = 'followup';
       state.mode = history[0].mode || 'visit';
       
@@ -194,7 +192,7 @@ function renderSlotGrid() {
         
     const badge = count > 0 ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] bg-red-100 text-red-600 font-bold">${count}</span>` : '';
     
-    return `<button type="button" data-slot="${s}" tabindex="0" class="${base} ${cls}">${fmtSlot(s)} ${badge}</button>`;
+    return `<button type="button" data-slot="${s}" class="${base} ${cls}">${fmtSlot(s)} ${badge}</button>`;
   }).join('');
 
   root.innerHTML = `<div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1.5 md:gap-2">${html}</div>`;
@@ -212,8 +210,6 @@ function renderSummary() {
   const pDesktop = $('#summary-patient');
   const dDesktop = $('#summary-date');
   const sDesktop = $('#summary-slot');
-  
-  // Mobile summary text
   const pMobile = $('#mobile-summary-patient');
   const sMobile = $('#mobile-summary-slot');
 
@@ -224,14 +220,14 @@ function renderSummary() {
   if (pMobile) pMobile.textContent = state.patient ? state.patient.name : '—';
   if (sMobile) sMobile.textContent = state.slot ? fmtSlot(state.slot) : '—';
 
-  const saveBtn = $('#book-save');
-  const saveBtnDesktop = $('#book-save-desktop');
+  const saveDesktop = $('#book-save-desktop');
+  const saveMobile = $('#book-save');
   
   const ready = state.patient && state.slot && !state.saving;
   const label = state.saving ? 'Saving...' : 'Book Appointment';
 
-  if (saveBtn) { saveBtn.disabled = !ready; saveBtn.textContent = label; }
-  if (saveBtnDesktop) { saveBtnDesktop.disabled = !ready; saveBtnDesktop.textContent = label; }
+  if (saveDesktop) { saveDesktop.disabled = !ready; saveDesktop.textContent = label; }
+  if (saveMobile) { saveMobile.disabled = !ready; saveMobile.textContent = label; }
 }
 
 async function refreshExisting() {
@@ -263,7 +259,6 @@ function wireEvents() {
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       state.patient = null;
-      state.patientHistory = [];
       const searchWrap = $('#patient-search-wrap');
       const selectedWrap = $('#patient-selected-wrap');
       if (searchWrap) searchWrap.classList.remove('hidden');
@@ -283,7 +278,6 @@ function wireEvents() {
       searchTimer = setTimeout(() => runSearch(q), 250);
     });
 
-    // ENTER selects the first result
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -307,26 +301,8 @@ function wireEvents() {
   }
 
   if (createBtn) {
-    createBtn.addEventListener('click', async () => {
-      const name = (searchInput && searchInput.value || '').trim();
-      if (!name) { showToast('Enter a name first', 'error'); return; }
-      const phone = (prompt('Phone number (optional):') || '').trim();
-
-      try {
-        const existing = await findExact(state.clinicId, name.toLowerCase());
-        if (existing) {
-          const useExisting = confirm('A patient named "' + existing.name + '" already exists.\n\nClick OK to use the existing patient.\nClick Cancel to create a new patient anyway.');
-          if (useExisting) { await selectPatient(existing); return; }
-        }
-      } catch (err) {}
-
-      try {
-        const id = await createPatient({ clinicId: state.clinicId, name, phone });
-        await selectPatient({ id, name, phone });
-        showToast('Patient created');
-      } catch (err) {
-        showToast('Could not create patient', 'error');
-      }
+    createBtn.addEventListener('click', () => {
+      openPatientModal();
     });
   }
 
@@ -347,14 +323,11 @@ function wireEvents() {
 
   // GLOBAL KEYBOARD SHORTCUTS
   document.addEventListener('keydown', (e) => {
-    // ESC: clear slot
     if (e.key === 'Escape') {
       state.slot = null;
       renderSlotGrid();
       renderSummary();
     }
-
-    // Ctrl+Enter: save
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       save();
@@ -372,14 +345,14 @@ function updateToggles() {
   document.querySelectorAll('[data-type]').forEach((el) => {
     const active = el.getAttribute('data-type') === state.type;
     el.className = active 
-      ? 'flex-1 h-9 rounded-lg text-[12.5px] font-medium border border-hairline bg-ink text-white shadow-md transition-all'
-      : 'flex-1 h-9 rounded-lg text-[12.5px] font-medium border border-hairline hover:border-accent bg-white text-ink transition-all';
+      ? 'flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline bg-ink text-white shadow-md transition-all'
+      : 'flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline hover:border-accent bg-white text-ink transition-all';
   });
   document.querySelectorAll('[data-mode]').forEach((el) => {
     const active = el.getAttribute('data-mode') === state.mode;
     el.className = active
-      ? 'flex-1 h-9 rounded-lg text-[12.5px] font-medium border border-hairline bg-ink text-white shadow-md transition-all'
-      : 'flex-1 h-9 rounded-lg text-[12.5px] font-medium border border-hairline hover:border-accent bg-white text-ink transition-all';
+      ? 'flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline bg-ink text-white shadow-md transition-all'
+      : 'flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline hover:border-accent bg-white text-ink transition-all';
   });
 }
 
@@ -467,3 +440,123 @@ async function save() {
     renderSummary();
   }
 }
+
+// ---------- Patient Modal Logic ----------
+function openPatientModal() {
+  const npName = $('#np-name');
+  const npPhone = $('#np-phone');
+  const npAge = $('#np-age');
+  const npAgeUnit = $('#np-age-unit');
+  const npSex = $('#np-sex');
+  const npAddress = $('#np-address');
+  const npReferral = $('#np-referral');
+  const npSave = $('#np-save');
+
+  if (npName) npName.value = '';
+  if (npPhone) npPhone.value = '';
+  if (npAge) npAge.value = '';
+  if (npAgeUnit) npAgeUnit.value = 'years';
+  if (npSex) npSex.value = 'Male';
+  if (npAddress) npAddress.value = '';
+  if (npReferral) npReferral.value = 'Google';
+  if (npSave) npSave.disabled = true;
+
+  const backdrop = $('#np-backdrop');
+  const modal = $('#np-modal');
+  if (backdrop) backdrop.classList.remove('hidden');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+  
+  setTimeout(() => { if (npName) npName.focus(); }, 100);
+}
+
+function closePatientModal() {
+  const backdrop = $('#np-backdrop');
+  const modal = $('#np-modal');
+  if (backdrop) backdrop.classList.add('hidden');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+function updateModalSaveState() {
+  const name = $('#np-name');
+  const phone = $('#np-phone');
+  const saveBtn = $('#np-save');
+  if (!name || !phone || !saveBtn) return;
+  saveBtn.disabled = !name.value.trim() || !phone.value.trim();
+}
+
+async function saveNewPatientModal() {
+  const nameEl = $('#np-name');
+  const phoneEl = $('#np-phone');
+  const ageEl = $('#np-age');
+  const ageUnitEl = $('#np-age-unit');
+  const sexEl = $('#np-sex');
+  const addressEl = $('#np-address');
+  const referralEl = $('#np-referral');
+  const saveBtn = $('#np-save');
+
+  if (!nameEl || !phoneEl) return;
+
+  const name = nameEl.value.trim();
+  const phone = phoneEl.value.trim();
+  if (!name || !phone) return;
+
+  let finalAge = ageEl ? ageEl.value : '';
+  const unit = ageUnitEl ? ageUnitEl.value : 'years';
+  if (finalAge) {
+    finalAge = Number(finalAge);
+    if (unit === 'months') finalAge = Math.round(finalAge / 12);
+    if (unit === 'days') finalAge = Math.round(finalAge / 365);
+  }
+
+  if (saveBtn) {
+    saveBtn.textContent = 'Creating...';
+    saveBtn.disabled = true;
+  }
+
+  try {
+    const id = await createPatient({
+      clinicId: state.clinicId,
+      name: name,
+      phone: phone,
+      age: finalAge || null,
+      sex: sexEl ? sexEl.value : '',
+      address: addressEl ? addressEl.value.trim() : '',
+      referral: referralEl ? referralEl.value : ''
+    });
+    
+    showToast('Patient added');
+    
+    // Select the newly created patient
+    await selectPatient({ id, name, phone });
+    closePatientModal();
+  } catch (err) {
+    showToast('Could not add patient', 'error');
+    if (saveBtn) {
+      saveBtn.textContent = 'Create Patient';
+      updateModalSaveState();
+    }
+  }
+}
+
+// Attach modal listeners once
+document.getElementById('np-close')?.addEventListener('click', closePatientModal);
+document.getElementById('np-cancel')?.addEventListener('click', closePatientModal);
+document.getElementById('np-backdrop')?.addEventListener('click', closePatientModal);
+document.getElementById('np-name')?.addEventListener('input', (e) => {
+  const v = e.target.value;
+  const next = v.replace(/(^|\s)([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase());
+  if (next !== v) {
+    const pos = e.target.selectionStart;
+    e.target.value = next;
+    try { e.target.setSelectionRange(pos, pos); } catch {}
+  }
+  updateModalSaveState();
+});
+document.getElementById('np-phone')?.addEventListener('input', updateModalSaveState);
+document.getElementById('np-save')?.addEventListener('click', saveNewPatientModal);

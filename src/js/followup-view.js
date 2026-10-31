@@ -1,7 +1,8 @@
-// ============================================================
+﻿// ============================================================
 // Followup view
 // ============================================================
 
+import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId } from './lib/clinic-context.js';
 import {
@@ -10,7 +11,7 @@ import {
   move,
   addNote
 } from './followups.js';
-import { fmtDate, fmtRelative, isPast, addDays, addMonths, todayISO } from './date-utils.js';
+import { fmtDate, fmtRelative, isPast, todayISO } from './date-utils.js';
 import { showToast } from './lib/toast.js';
 
 const $ = (sel) => document.querySelector(sel);
@@ -39,6 +40,7 @@ export async function startFollowupView() {
   if (!state.fu) { renderError('Follow-up not found.'); return; }
 
   wireEvents();
+  wireModal();
   render();
 }
 
@@ -52,6 +54,7 @@ function render() {
   setText('#fu-seen', fmtDate(f.seenOn));
   setText('#fu-interval', intervalLabel(f.intervalDays));
   setText('#fu-status', statusLabel(f.status));
+  setText('#fu-status-inline', statusLabel(f.status));
 
   const rel = $('#fu-due-rel');
   if (rel) {
@@ -149,15 +152,6 @@ function setText(sel, value) {
   if (el) el.textContent = value;
 }
 
-function esc(s) {
-  return String(s == null ? '' : s)
-    .split('&').join('&amp;')
-    .split('<').join('&lt;')
-    .split('>').join('&gt;')
-    .split('"').join('&quot;')
-    .split("'").join('&#39;');
-}
-
 function intervalLabel(days) {
   const map = { 7: '1 week', 15: '15 days', 30: '1 month', 60: '2 months', 90: '3 months', 180: '6 months', 365: '12 months' };
   return map[days] || (days ? `${days} days` : '—');
@@ -188,8 +182,8 @@ function wireEvents() {
 async function onAction(action) {
   if (action === 'call') return doCall();
   if (action === 'book') return doBook();
-  if (action === 'move') return doMove();
-  if (action === 'note') return doNote();
+  if (action === 'move') return showMoveDialog();
+  if (action === 'note') return showNoteDialog();
   if (action === 'done') return doResolve('done');
   if (action === 'cancel') return doResolve('cancelled');
 }
@@ -213,16 +207,68 @@ function doBook() {
   location.href = url;
 }
 
-// Custom Prompt Modal for Move
-function showMoveDialog() {
-  const current = state.fu.dueDate;
-  const newDate = window.prompt('New due date (YYYY-MM-DD):', current);
-  if (!newDate || newDate === current) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) { showToast('Invalid date format', 'error'); return; }
-  performMove(newDate);
+// ---------- Modal Logic ----------
+function openModal(title, type) {
+  $('#fu-modal-title').textContent = title;
+  $('#fu-move-panel').classList.add('hidden');
+  $('#fu-note-panel').classList.add('hidden');
+  
+  if (type === 'move') {
+    $('#fu-move-panel').classList.remove('hidden');
+    $('#fu-move-date').value = state.fu.dueDate;
+    setTimeout(() => {
+      try { $('#fu-move-date').showPicker && $('#fu-move-date').showPicker(); } catch {}
+    }, 150);
+  } else if (type === 'note') {
+    $('#fu-note-panel').classList.remove('hidden');
+    $('#fu-note-text').value = '';
+    setTimeout(() => $('#fu-note-text').focus(), 150);
+  }
+
+  $('#fu-backdrop').classList.remove('hidden');
+  $('#fu-modal').classList.remove('hidden');
+  $('#fu-modal').classList.add('flex');
 }
 
+function closeModal() {
+  $('#fu-backdrop').classList.add('hidden');
+  $('#fu-modal').classList.add('hidden');
+  $('#fu-modal').classList.remove('flex');
+}
+
+function wireModal() {
+  $('#fu-backdrop')?.addEventListener('click', closeModal);
+  $('#fu-modal-close')?.addEventListener('click', closeModal);
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#fu-modal').classList.contains('hidden')) closeModal();
+  });
+
+  $('#fu-move-date')?.addEventListener('click', () => {
+    try { $('#fu-move-date').showPicker && $('#fu-move-date').showPicker(); } catch {}
+  });
+
+  $('#fu-move-save')?.addEventListener('click', () => {
+    const d = $('#fu-move-date').value;
+    if (!d) return;
+    closeModal();
+    performMove(d);
+  });
+
+  $('#fu-note-save')?.addEventListener('click', () => {
+    const n = $('#fu-note-text').value.trim();
+    if (!n) return;
+    closeModal();
+    performNote(n);
+  });
+}
+
+function showMoveDialog() { openModal('Move Due Date', 'move'); }
+function showNoteDialog() { openModal('Add Note', 'note'); }
+
+// ---------- Actions ----------
 async function performMove(newDate) {
+  if (state.saving) return;
   const current = state.fu.dueDate;
   state.saving = true;
   try {
@@ -235,14 +281,11 @@ async function performMove(newDate) {
   } finally { state.saving = false; }
 }
 
-function doMove() { showMoveDialog(); }
-
-async function doNote() {
-  const note = prompt('Add a note:');
-  if (!note || !note.trim()) return;
+async function performNote(note) {
+  if (state.saving) return;
   state.saving = true;
   try {
-    await addNote(state.fu.id, note.trim());
+    await addNote(state.fu.id, note);
     showToast('Note added');
     state.fu = await getFollowup(state.fu.id);
     render();

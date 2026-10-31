@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Call view
 //
 // Controller for /call?id=...
@@ -10,6 +10,7 @@
 //   - Add note               -> append to history
 // ============================================================
 
+import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { get as getCall, resolve, addNote } from './calls.js';
 import { showToast } from './lib/toast.js';
@@ -47,7 +48,7 @@ function render() {
 
   setText('#call-name', c.patientName || 'Patient');
   setText('#call-phone', c.patientPhone || '');
-  setText('#call-reason', c.reason || '—');
+  setText('#call-reason', c.reason || '€”');
   setText('#call-status', statusLabel(c.status));
   setText('#call-created', fmtTimestamp(c.createdAt));
 
@@ -75,7 +76,7 @@ function renderHistory() {
     <div class="flex gap-3 py-2.5 border-b border-hairline last:border-b-0">
       <div class="w-[100px] shrink-0 text-[11.5px] text-ink-faint tnum pt-0.5">${esc(fmtHistoryTime(h.at))}</div>
       <div class="flex-1 min-w-0">
-        <div class="text-[13px] text-ink">${esc(h.byName || '')} <span class="text-ink-faint">·</span> ${esc(h.action || '')}</div>
+        <div class="text-[13px] text-ink">${esc(h.byName || '')} <span class="text-ink-faint">&middot;</span> ${esc(h.action || '')}</div>
         ${h.note ? `<div class="text-[12.5px] text-ink-mute mt-0.5">${esc(h.note)}</div>` : ''}
       </div>
     </div>`).join('');
@@ -109,17 +110,9 @@ function setText(sel, value) {
   if (el) el.textContent = value;
 }
 
-function esc(s) {
-  return String(s == null ? '' : s)
-    .split('&').join('&amp;')
-    .split('<').join('&lt;')
-    .split('>').join('&gt;')
-    .split('"').join('&quot;')
-    .split("'").join('&#39;');
-}
 
 function statusLabel(s) {
-  return { pending: 'Pending', done: 'Complete', converted: 'Converted' }[s] || s || '—';
+  return { pending: 'Pending', done: 'Complete', converted: 'Converted' }[s] || s || '€”';
 }
 
 function fmtTimestamp(ts) {

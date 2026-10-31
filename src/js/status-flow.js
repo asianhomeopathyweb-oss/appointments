@@ -7,12 +7,13 @@
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId } from './lib/clinic-context.js';
 import { get as getAppointment, updateStatus, reschedule as rescheduleAppt } from './appointments.js';
-import { createFromVisit, findPendingForPatient, supersede, resolve as resolveFollowup } from './followups.js';
+import { createFromVisit, findPendingForPatient, supersede } from './followups.js';
 import { generateSlots, isDayOpen } from './slot-grid.js';
-import { todayISO, addDays, addMonths, intervalToDate, fmtDate, fmtSlot } from './date-utils.js';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { todayISO, intervalToDate, fmtDate, fmtSlot } from './date-utils.js';
+import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from './lib/firebase-init.js';
 import { showToast } from './lib/toast.js';
+import { checkSlotOccupancy, invalidateOccupancy } from './booking-policy.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -161,6 +162,40 @@ function renderBody() {
       actionsRoot.hidden = false;
     });
   }
+
+  // Move Time picker (hidden until Move clicked)
+  const moveRoot = $('#appt-move');
+  if (moveRoot) {
+    moveRoot.hidden = true;
+    moveRoot.innerHTML = `
+      <div class="mb-3 text-[11px] font-bold uppercase tracking-widest text-ink-mute">Reschedule Appointment</div>
+      <div class="mb-3">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">New Date</label>
+        <input type="date" id="appt-move-date" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" />
+      </div>
+      <div class="mb-4">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">New Time Slot</label>
+        <select id="appt-move-slot" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent"></select>
+      </div>
+      <div class="flex gap-3">
+        <button id="move-back" type="button" class="flex-1 h-10 rounded-xl bg-white text-ink border border-hairline text-[13px] font-semibold">Back</button>
+        <button id="move-save" type="button" class="flex-1 h-10 rounded-xl bg-orange-400 hover:bg-orange-500 text-white text-[13px] font-bold">Move</button>
+      </div>`;
+      
+    moveRoot.querySelector('#move-back').addEventListener('click', () => {
+      moveRoot.hidden = true;
+      actionsRoot.hidden = false;
+    });
+    moveRoot.querySelector('#move-save').addEventListener('click', () => doMove());
+    
+    const dateInput = moveRoot.querySelector('#appt-move-date');
+    if (dateInput) {
+      dateInput.addEventListener('click', () => {
+        try { dateInput.showPicker && dateInput.showPicker(); } catch {}
+      });
+      dateInput.addEventListener('change', () => populateMoveSlots());
+    }
+  }
 }
 
 function button(label, action, kind, icon) {
@@ -187,15 +222,17 @@ function wireEvents() {
 async function onAction(action) {
   if (action === 'seen') { showFollowupPicker(); return; }
   if (action === 'cancel') { showCancelPicker(); return; }
-  if (action === 'move') { showMoveUI(); return; }
+  if (action === 'move') { showMovePicker(); return; }
   if (action === 'reopen') { await doReopen(); return; }
 }
 
 function showFollowupPicker() {
   const fu = $('#appt-followup');
   const reason = $('#appt-reason');
+  const move = $('#appt-move');
   const actions = $('#appt-actions');
   if (reason) reason.hidden = true;
+  if (move) move.hidden = true;
   if (actions) actions.hidden = true;
   if (fu) {
     fu.hidden = false;
@@ -214,10 +251,99 @@ function showFollowupPicker() {
 function showCancelPicker() {
   const fu = $('#appt-followup');
   const reason = $('#appt-reason');
+  const move = $('#appt-move');
   const actions = $('#appt-actions');
   if (fu) fu.hidden = true;
+  if (move) move.hidden = true;
   if (actions) actions.hidden = true;
   if (reason) reason.hidden = false;
+}
+
+function showMovePicker() {
+  const fu = $('#appt-followup');
+  const reason = $('#appt-reason');
+  const move = $('#appt-move');
+  const actions = $('#appt-actions');
+  if (fu) fu.hidden = true;
+  if (reason) reason.hidden = true;
+  if (actions) actions.hidden = true;
+  if (move) move.hidden = false;
+  
+  const dateInput = $('#appt-move-date');
+  if (dateInput) dateInput.value = state.appointment.date;
+  populateMoveSlots();
+}
+
+async function populateMoveSlots() {
+  const dateInput = $('#appt-move-date');
+  const slotSelect = $('#appt-move-slot');
+  if (!dateInput || !slotSelect) return;
+  if (!state.schedule) { slotSelect.innerHTML = `<option>No schedule</option>`; return; }
+
+  const pickedDate = dateInput.value || state.appointment.date;
+  const slots = generateSlots(state.schedule);
+  if (slots.length === 0) { slotSelect.innerHTML = `<option>Clinic closed</option>`; return; }
+
+  slotSelect.innerHTML = `<option value="">Loading slots…</option>`;
+
+  const occupancies = await Promise.all(
+    slots.map(slot =>
+      checkSlotOccupancy({
+        clinicId: state.clinicId,
+        dateISO: pickedDate,
+        slot,
+        excludeApptId: state.appointment.id
+      }).catch(() => ({ count: 0, conflict: null }))
+    )
+  );
+
+  slotSelect.innerHTML = slots.map((s, i) => {
+    const occ = occupancies[i];
+    const isOriginal = s === state.appointment.slot && pickedDate === state.appointment.date;
+    const label = occ.count > 0
+      ? `${fmtSlot(s)} — Booked (${occ.conflict?.patientName || 'another'})`
+      : `${fmtSlot(s)} — Free`;
+    return `<option value="${s}" ${isOriginal ? 'selected' : ''}>${label}</option>`;
+  }).join('');
+}
+
+async function doMove() {
+  if (state.saving) return;
+  const newDate = $('#appt-move-date').value;
+  const newSlot = $('#appt-move-slot').value;
+  if (!newDate || !newSlot) { showToast('Pick date and slot', 'error'); return; }
+
+  state.saving = true;
+
+  try {
+    const occ = await checkSlotOccupancy({
+      clinicId: state.clinicId,
+      dateISO: newDate,
+      slot: newSlot,
+      excludeApptId: state.appointment.id
+    });
+
+    if (occ.count > 0) {
+      const who = occ.conflict?.patientName || 'another patient';
+      const proceed = confirm(
+        `This slot already has ${occ.count} booking${occ.count > 1 ? 's' : ''} (${who}). Move anyway?`
+      );
+      if (!proceed) {
+        state.saving = false;
+        return;
+      }
+    }
+
+    await rescheduleAppt(state.appointment.id, newDate, newSlot);
+    invalidateOccupancy(state.clinicId, state.appointment.date);
+    invalidateOccupancy(state.clinicId, newDate);
+    showToast('Appointment moved');
+    setTimeout(() => history.back(), 400);
+  } catch (err) {
+    console.error('[status-flow] move failed:', err);
+    showToast('Could not move', 'error');
+    state.saving = false;
+  }
 }
 
 async function onIntervalPick(value) {
@@ -272,29 +398,6 @@ async function doReopen() {
     setTimeout(() => history.back(), 400);
   } catch (err) {
     showToast('Could not update', 'error');
-    state.saving = false;
-  }
-}
-
-function showMoveUI() {
-  const newDate = prompt('New date (YYYY-MM-DD):', state.appointment.date);
-  if (!newDate) return;
-  const newSlot = prompt('New slot (HH:mm, e.g. 10:30):', state.appointment.slot);
-  if (!newSlot) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) { showToast('Invalid date format', 'error'); return; }
-  if (!/^\d{2}:\d{2}$/.test(newSlot)) { showToast('Invalid slot format', 'error'); return; }
-  reschedule(state.appointment.id, newDate, newSlot);
-}
-
-async function reschedule(id, newDate, newSlot) {
-  if (state.saving) return;
-  state.saving = true;
-  try {
-    await rescheduleAppt(id, newDate, newSlot);
-    showToast('Moved');
-    setTimeout(() => history.back(), 400);
-  } catch (err) {
-    showToast('Could not move', 'error');
     state.saving = false;
   }
 }

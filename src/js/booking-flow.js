@@ -2,11 +2,12 @@
 // Booking flow
 // ============================================================
 
+import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId, getActiveClinic } from './lib/clinic-context.js';
 import { searchByName, searchByPhone, create as createPatient, get as getPatient, findExact } from './patients.js';
 import { create as createAppointment, listForDay, listForPatient } from './appointments.js';
-import { checkSlot, slotsForType, fitsInGrid } from './booking-policy.js';
+import { slotsForType, fitsInGrid, checkSlotOccupancy, invalidateOccupancy } from './booking-policy.js';
 import { generateSlots, isDayOpen } from './slot-grid.js';
 import { todayISO, fmtDate, fmtSlot, addDays, isoToDate } from './date-utils.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
@@ -89,28 +90,26 @@ async function selectPatient(patient) {
   const results = $('#patient-results');
   if (results) results.innerHTML = '';
 
-  // Fetch history for smart defaults + context
   try {
     const history = await listForPatient(state.clinicId, patient.id);
-    
+
     if (history && history.length > 0) {
       state.type = 'followup';
       state.mode = history[0].mode || 'visit';
-      
-      // Show "Last visited" context
+
       const last = history[0];
       const lastDate = fmtDate(last.date);
       const lastType = last.type === 'new' ? 'New' : 'Follow-up';
       const ctxEl = $('#patient-last-visit');
       if (ctxEl) {
         ctxEl.textContent = `Last visited: ${lastDate} · ${lastType}`;
-        ctxEl.hidden = false;
+        ctxEl.classList.remove('hidden');
       }
     } else {
       state.type = 'new';
       state.mode = 'visit';
       const ctxEl = $('#patient-last-visit');
-      if (ctxEl) ctxEl.hidden = true;
+      if (ctxEl) ctxEl.classList.add('hidden');
     }
   } catch {
     state.type = 'new';
@@ -182,16 +181,16 @@ function renderSlotGrid() {
   const html = state.slots.map((s) => {
     const selected = s === state.slot;
     const count = state.existingBySlot[s] || 0;
-    
+
     const base = 'h-9 rounded-lg text-[12.5px] tnum border transition-all font-medium flex items-center justify-center';
     const cls = selected
       ? 'bg-ink text-white border-ink shadow-md scale-[1.02]'
       : count > 0
         ? 'bg-surface-press text-ink-mute border-transparent hover:border-accent'
         : 'bg-white text-ink border-hairline hover:border-accent shadow-sm';
-        
+
     const badge = count > 0 ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] bg-red-100 text-red-600 font-bold">${count}</span>` : '';
-    
+
     return `<button type="button" data-slot="${s}" class="${base} ${cls}">${fmtSlot(s)} ${badge}</button>`;
   }).join('');
 
@@ -216,13 +215,13 @@ function renderSummary() {
   if (pDesktop) pDesktop.textContent = state.patient ? state.patient.name : '—';
   if (dDesktop) dDesktop.textContent = fmtDate(state.dateISO);
   if (sDesktop) sDesktop.textContent = state.slot ? fmtSlot(state.slot) : '—';
-  
+
   if (pMobile) pMobile.textContent = state.patient ? state.patient.name : '—';
   if (sMobile) sMobile.textContent = state.slot ? fmtSlot(state.slot) : '—';
 
   const saveDesktop = $('#book-save-desktop');
   const saveMobile = $('#book-save');
-  
+
   const ready = state.patient && state.slot && !state.saving;
   const label = state.saving ? 'Saving...' : 'Book Appointment';
 
@@ -344,7 +343,7 @@ function wireEvents() {
 function updateToggles() {
   document.querySelectorAll('[data-type]').forEach((el) => {
     const active = el.getAttribute('data-type') === state.type;
-    el.className = active 
+    el.className = active
       ? 'flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline bg-ink text-white shadow-md transition-all'
       : 'flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline hover:border-accent bg-white text-ink transition-all';
   });
@@ -385,14 +384,6 @@ function mergeUnique(a, b) {
   return out;
 }
 
-function esc(s) {
-  return String(s == null ? '' : s)
-    .split('&').join('&amp;')
-    .split('<').join('&lt;')
-    .split('>').join('&gt;')
-    .split('"').join('&quot;')
-    .split("'").join('&#39;');
-}
 
 async function save() {
   if (!state.patient || !state.slot || state.saving) return;
@@ -408,8 +399,31 @@ async function save() {
     return;
   }
 
-  const existing = state.existingBySlot[state.slot] || 0;
-  const order = existing + 1;
+  // Centralised collision check (same helper used by reschedule)
+  let occ;
+  try {
+    occ = await checkSlotOccupancy({
+      clinicId: state.clinicId,
+      dateISO: state.dateISO,
+      slot: state.slot
+    });
+  } catch {
+    occ = { count: 0, conflict: null };
+  }
+
+  if (occ.count > 0) {
+    const who = occ.conflict?.patientName || 'another patient';
+    const proceed = confirm(
+      `This slot already has ${occ.count} booking${occ.count > 1 ? 's' : ''} (${who}). Book anyway?`
+    );
+    if (!proceed) {
+      state.saving = false;
+      renderSummary();
+      return;
+    }
+  }
+
+  const order = (state.existingBySlot[state.slot] || 0) + 1;
 
   const payload = {
     clinicId: state.clinicId,
@@ -431,6 +445,7 @@ async function save() {
 
   try {
     await createAppointment(payload);
+    invalidateOccupancy(state.clinicId, state.dateISO);
     showToast('Appointment booked');
     const back = '/day?date=' + state.dateISO;
     setTimeout(() => { location.replace(back); }, 300);
@@ -468,7 +483,7 @@ function openPatientModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
-  
+
   setTimeout(() => { if (npName) npName.focus(); }, 100);
 }
 
@@ -529,10 +544,9 @@ async function saveNewPatientModal() {
       address: addressEl ? addressEl.value.trim() : '',
       referral: referralEl ? referralEl.value : ''
     });
-    
+
     showToast('Patient added');
-    
-    // Select the newly created patient
+
     await selectPatient({ id, name, phone });
     closePatientModal();
   } catch (err) {

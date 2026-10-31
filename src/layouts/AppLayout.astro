@@ -73,6 +73,20 @@ const path = Astro.url.pathname;
           <i class="bi bi-telephone text-[15px]"></i> <span>Calls</span>
         </a>
 
+        <!-- Divider -->
+        <div class="h-px bg-hairline my-2 mx-2"></div>
+
+        <!-- Ecosystem Links -->
+        <a href="https://billbook.asianhomeocare.in" target="_blank" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover">
+          <i class="bi bi-receipt text-[15px]"></i> <span>BillBook</span>
+        </a>
+        <a href="https://casepapers.asianhomeocare.in" target="_blank" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover`}>
+          <i class="bi bi-file-medical text-[15px]"></i> <span>Case Papers</span>
+        </a>
+
+        <!-- Divider -->
+        <div class="h-px bg-hairline my-2 mx-2"></div>
+
         <!-- Admin Only Links -->
         <a href="/reports" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/reports' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
           <i class="bi bi-bar-chart text-[15px]"></i> <span>Reports</span>
@@ -124,6 +138,20 @@ const path = Astro.url.pathname;
           <a href="/calls" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/calls' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
             <i class="bi bi-telephone text-[15px]"></i> <span>Calls</span>
           </a>
+
+          <!-- Divider (Mobile) -->
+          <div class="h-px bg-hairline my-2 mx-2"></div>
+
+          <!-- Ecosystem Links (Mobile) -->
+          <a href="https://billbook.asianhomeocare.in" target="_blank" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover">
+            <i class="bi bi-receipt text-[15px]"></i> <span>BillBook</span>
+          </a>
+          <a href="https://casepapers.asianhomeocare.in" target="_blank" data-admin-only="true" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover">
+            <i class="bi bi-file-medical text-[15px]"></i> <span>Case Papers</span>
+          </a>
+
+          <!-- Divider (Mobile) -->
+          <div class="h-px bg-hairline my-2 mx-2"></div>
 
           <!-- Admin Only Links (Mobile) -->
           <a href="/reports" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/reports' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>

@@ -1,7 +1,8 @@
-// ============================================================
+﻿// ============================================================
 // Patient view
 // ============================================================
 
+import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId } from './lib/clinic-context.js';
 import { get as getPatient, updatePatient } from './patients.js';
@@ -92,7 +93,7 @@ function renderSections() {
   if (!root) return;
 
   if (state.loading) {
-    root.innerHTML = `<div class="p-8 text-center text-[13px] text-ink-mute">Loading…</div>`;
+    root.innerHTML = `<div class="p-8 text-center text-[13px] text-ink-mute">Loading...</div>`;
     return;
   }
 
@@ -143,7 +144,7 @@ function section(title, count, inner) {
   return `
     <div class="border-t border-hairline first:border-t-0">
       <div class="px-4 md:px-6 pt-5 pb-2">
-        <div class="text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-ink-faint">${esc(title)} · ${count}</div>
+        <div class="text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-ink-faint">${esc(title)} &middot; ${count}</div>
       </div>
       ${inner}
     </div>`;
@@ -160,7 +161,7 @@ function apptRow(a) {
   const meta = [];
   if (a.type) meta.push(a.type === 'new' ? 'New' : 'Follow-up');
   if (a.mode) meta.push(a.mode === 'call' ? 'Call' : 'Visit');
-  if (status === 'cancelled' && a.cancelledReason) meta.push('· ' + a.cancelledReason.replace('_', ' '));
+  if (status === 'cancelled' && a.cancelledReason) meta.push('&middot; ' + a.cancelledReason.replace('_', ' '));
   return `
     <div data-appt-id="${esc(a.id)}"
       class="flex items-center gap-3 px-4 md:px-6 h-[60px] hover:bg-surface-hover cursor-pointer transition-colors">
@@ -169,7 +170,7 @@ function apptRow(a) {
         <div class="text-[11px] text-ink-faint tnum">${esc(fmtSlot(a.slot))}</div>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-[13.5px] font-medium ${nameStyle} truncate">${esc(meta.join(' · '))}</div>
+        <div class="text-[13.5px] font-medium ${nameStyle} truncate">${esc(meta.join(' &middot; '))}</div>
       </div>
       <div class="shrink-0">${dot}</div>
     </div>`;
@@ -193,7 +194,7 @@ function fuRow(f) {
       <div class="flex-1 min-w-0">
         <div class="text-[12.5px] text-ink-mute truncate">
           ${f.seenOn ? `seen ${esc(fmtDate(f.seenOn))}` : ''}
-          ${f.intervalDays ? `<span class="mx-1 text-ink-faint">·</span>${esc(intervalLabel(f.intervalDays))}` : ''}
+          ${f.intervalDays ? `<span class="mx-1 text-ink-faint">&middot;</span>${esc(intervalLabel(f.intervalDays))}` : ''}
         </div>
       </div>
       <div class="shrink-0">${statusPill}</div>
@@ -210,11 +211,6 @@ function setText(sel, value) {
   if (el) el.textContent = value;
 }
 
-function esc(s) {
-  return String(s == null ? '' : s)
-    .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
-    .split('"').join('&quot;').split("'").join('&#39;');
-}
 
 function renderError(msg) {
   const root = $('#pt-sections');
@@ -314,6 +310,10 @@ function wireEditModal() {
 
   const backdrop = $('#ep-backdrop');
   if (backdrop) backdrop.addEventListener('click', closeEditModal);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#ep-modal').classList.contains('hidden')) closeEditModal();
+  });
 
   const nameIn = $('#ep-name');
   if (nameIn) {

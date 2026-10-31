@@ -10,7 +10,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
   getDocs,
   doc,
@@ -25,37 +24,46 @@ import { writeAudit } from "./lib/activity-log.js";
 
 /**
  * All appointments for a clinic on a given date.
- * Sorted by slot, then by order (for double-booked slots).
+ * SAFE: Only queries by clinicId (single field), then filters by
+ * date and deleted in JavaScript. This avoids composite indexes.
  */
 export async function listForDay(clinicId, dateISO) {
   const q = query(
     collection(db, "appointments"),
-    where("clinicId", "==", clinicId),
-    where("date", "==", dateISO),
-    where("deleted", "==", false),
-    orderBy("slot", "asc"),
-    orderBy("order", "asc")
+    where("clinicId", "==", clinicId)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((a) => a.deleted !== true && a.date === dateISO)
+    .sort((a, b) => {
+      const slotCompare = (a.slot || '').localeCompare(b.slot || '');
+      if (slotCompare !== 0) return slotCompare;
+      return (a.order || 1) - (b.order || 1);
+    });
 }
 
 /**
  * Subscribe to appointments for a clinic + date.
+ * SAFE: Only queries by clinicId (single field), then filters by
+ * date and deleted in JavaScript. This avoids composite indexes.
  */
 export function subscribeForDay(clinicId, dateISO, onData, onError) {
   const q = query(
     collection(db, "appointments"),
-    where("clinicId", "==", clinicId),
-    where("date", "==", dateISO),
-    where("deleted", "==", false),
-    orderBy("slot", "asc"),
-    orderBy("order", "asc")
+    where("clinicId", "==", clinicId)
   );
   return onSnapshot(
     q,
     (snap) => {
-      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => a.deleted !== true && a.date === dateISO)
+        .sort((a, b) => {
+          const slotCompare = (a.slot || '').localeCompare(b.slot || '');
+          if (slotCompare !== 0) return slotCompare;
+          return (a.order || 1) - (b.order || 1);
+        });
       onData(rows);
     },
     (err) => {
@@ -67,9 +75,6 @@ export function subscribeForDay(clinicId, dateISO, onData, onError) {
 
 /**
  * All appointments for a patient, newest first.
- * 
- * FIX: Only queries by clinicId (single field), then filters by
- * patientId in JavaScript. This avoids the composite index requirement.
  */
 export async function listForPatient(clinicId, patientId) {
   const q = query(

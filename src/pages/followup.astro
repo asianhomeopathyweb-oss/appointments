@@ -76,6 +76,39 @@ import AppLayout from '../layouts/AppLayout.astro';
 
   </div>
 
+  <!-- ACTION MODAL (Move Date / Note) -->
+  <div id="fu-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+
+  <div id="fu-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+           md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
+
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0 flex items-center justify-between">
+      <div id="fu-modal-title" class="text-[16px] font-bold text-ink">Action</div>
+      <button id="fu-modal-close" type="button" class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute shrink-0">
+        <i class="bi bi-x-lg text-[16px]"></i>
+      </button>
+    </div>
+
+    <div class="p-5">
+      <!-- Move Date Panel -->
+      <div id="fu-move-panel" class="hidden">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">New Due Date</label>
+        <input type="date" id="fu-move-date" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent mb-4" />
+        <button id="fu-move-save" type="button" class="w-full h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors">Save New Date</button>
+      </div>
+
+      <!-- Note Panel -->
+      <div id="fu-note-panel" class="hidden">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Add a note</label>
+        <textarea id="fu-note-text" rows="3" class="w-full p-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent resize-none mb-4" placeholder="Type note here..."></textarea>
+        <button id="fu-note-save" type="button" class="w-full h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors">Save Note</button>
+      </div>
+    </div>
+
+  </div>
+
   <script>
     import { requireAuth } from '../js/lib/auth-guards.js';
     import { startFollowupView } from '../js/followup-view.js';

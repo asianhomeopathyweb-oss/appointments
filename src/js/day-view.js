@@ -2,12 +2,15 @@
 // Day view
 // ============================================================
 
+import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId, getActiveClinic } from './lib/clinic-context.js';
-import { subscribeForDay, updateStatus, softDelete } from './appointments.js';
+import { subscribeForDay, updateStatus, softDelete, reschedule as rescheduleAppt } from './appointments.js';
+import { createFromVisit, findPendingForPatient, supersede } from './followups.js';
 import { generateSlots, isDayOpen } from './slot-grid.js';
-import { todayISO, addDays, fmtDate, fmtSlot, isToday, isoToDate } from './date-utils.js';
+import { todayISO, addDays, fmtDate, fmtSlot, isToday, isoToDate, intervalToDate } from './date-utils.js';
 import { showToast } from './lib/toast.js';
+import { checkSlotOccupancy, invalidateOccupancy } from './booking-policy.js';
 
 const state = {
   dateISO: todayISO(),
@@ -15,16 +18,13 @@ const state = {
   clinic: null,
   schedule: null,
   appointments: [],
-  unsubscribe: null
+  unsubscribe: null,
+  activeAppt: null,
+  pendingFollowup: null
 };
 
 const $ = (sel) => document.querySelector(sel);
 
-function esc(s) {
-  return String(s == null ? '' : s)
-    .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
-    .split('"').join('&quot;').split("'").join('&#39;');
-}
 
 export async function startDayView() {
   const m = me();
@@ -38,6 +38,8 @@ export async function startDayView() {
 
   readQueryParams();
   wireNavButtons();
+  wireDatePickers();
+  wireRowModal();
   renderHeader();
   renderGrid();
   subscribe();
@@ -60,20 +62,13 @@ async function loadSchedule(clinicId) {
 }
 
 function renderHeader() {
-  const today = todayISO();
-  const yesterday = addDays(today, -1);
-  const tomorrow = addDays(today, 1);
-
-  // Desktop Elements
   const dateEl = $('#day-date');
   const subEl = $('#day-sub');
-  
-  // Mobile Elements (3 buttons)
   const mPrev = $('#mobile-day-prev');
   const mToday = $('#mobile-day-today');
   const mNext = $('#mobile-day-next');
+  const mobileDisplay = $('#mobile-date-display');
 
-  // Populate Desktop
   if (dateEl) dateEl.textContent = fmtDate(state.dateISO);
   if (subEl) {
     const total = state.appointments.filter((a) => a.status !== 'cancelled').length;
@@ -81,20 +76,22 @@ function renderHeader() {
     subEl.textContent = total === 0 ? 'No appointments' : `${total} booked · ${seen} seen`;
   }
 
-  // Populate Mobile (Yesterday / Today / Tomorrow)
   const fmtShort = (iso) => {
     const d = isoToDate(iso);
-    return `${String(d.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+    return `${String(d.getDate()).padStart(2, '0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
   };
-  
-  if (mPrev) mPrev.textContent = fmtShort(yesterday);
-  if (mToday) mToday.textContent = fmtShort(today);
-  if (mNext) mNext.textContent = fmtShort(tomorrow);
-  
-  const todayBtn = $('#day-today');
-  if (todayBtn) todayBtn.hidden = isToday(state.dateISO);
 
-  // Desktop Strip logic
+  const today = todayISO();
+  if (mPrev) mPrev.textContent = fmtShort(addDays(today, -1));
+  if (mToday) mToday.textContent = fmtShort(today);
+  if (mNext) mNext.textContent = fmtShort(addDays(today, 1));
+  
+  // Update the mobile date picker button text
+  if (mobileDisplay) mobileDisplay.textContent = fmtShort(state.dateISO);
+
+  const todayBtn = $('#day-today');
+  if (todayBtn) todayBtn.classList.toggle('hidden', isToday(state.dateISO));
+
   const start = addDays(state.dateISO, -3);
   const days = [];
   for (let i = 0; i < 7; i++) days.push(addDays(start, i));
@@ -129,114 +126,191 @@ function renderHeader() {
 }
 
 function renderGrid() {
-  const root = $('#day-grid');
-  if (!root) return;
+  const tableRoot = $('#day-grid');
+  const mobileRoot = $('#day-mobile-list');
+  if (!tableRoot || !mobileRoot) return;
 
   if (!state.schedule) {
-    root.innerHTML = `<tr><td colspan="3" class="p-10 text-center text-ink-mute">No schedule set up.</td></tr>`;
+    tableRoot.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-ink-mute">No schedule set up.</td></tr>`;
+    mobileRoot.innerHTML = `<div class="p-10 text-center text-ink-mute">No schedule set up.</div>`;
     return;
   }
 
   if (!isDayOpen(state.schedule, state.dateISO)) {
-    root.innerHTML = `<tr><td colspan="3" class="p-10 text-center text-ink-mute">Clinic is closed on this day.</td></tr>`;
+    tableRoot.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-ink-mute">Clinic is closed on this day.</td></tr>`;
+    mobileRoot.innerHTML = `<div class="p-10 text-center text-ink-mute">Clinic is closed on this day.</div>`;
     return;
   }
 
   const slots = generateSlots(state.schedule);
   const grouped = groupBySlot(state.appointments);
 
-  root.innerHTML = slots.map(slot => {
+  let tableHtml = '';
+  let mobileHtml = '';
+
+  slots.forEach(slot => {
     const appts = grouped[slot] || [];
-    
+
     if (appts.length === 0) {
-      return `
+      // --- EMPTY SLOT ROW ---
+      tableHtml += `
         <tr class="hover:bg-surface-hover/30 transition-colors group cursor-pointer" data-empty-slot="${slot}">
-          <td class="px-4 md:px-6 py-4 text-[13px] md:text-[14px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)}</td>
-          <td class="px-4 md:px-6 py-4 text-[13px] md:text-[14px] text-ink-faint italic group-hover:text-accent">Click to book...</td>
-          <td class="px-4 md:px-6 py-4"></td>
+          <td class="px-4 md:px-6 py-3 md:py-4 text-[13px] md:text-[14px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)}</td>
+          <td colspan="4" class="px-4 md:px-6 py-3 md:py-4 text-[13px] md:text-[14px] text-ink-faint italic group-hover:text-accent">Click to book...</td>
         </tr>`;
-    }
-
-    return appts.map(a => {
-      const status = a.status || 'booked';
-      const isSeen = status === 'seen';
-      const isCancelled = status === 'cancelled';
       
-      const actionHtml = isCancelled 
-        ? `<span class="text-[11px] md:text-[13px] font-bold text-red-500 uppercase">Cancelled</span>`
-        : isSeen 
-          ? `<span class="text-[11px] md:text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
-          : `
-            <div class="flex flex-wrap gap-2">
-               <button data-action="seen" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
-                 <i class="bi bi-check-circle-fill"></i> Complete
-               </button>
-               <button data-action="reschedule" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-orange-400 hover:bg-orange-500 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
-                 <i class="bi bi-clock-fill"></i> Reschedule
-               </button>
-               <button data-action="delete" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
-                 <i class="bi bi-trash-fill"></i> Delete
-               </button>
-            </div>`;
+      mobileHtml += `
+        <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer border-b border-hairline last:border-0" data-empty-slot="${slot}">
+          <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)}</div>
+          <div class="flex-1 text-[13px] text-ink-faint italic">Click to book...</div>
+        </div>`;
+    } else {
+      appts.forEach(a => {
+        const status = a.status || 'booked';
+        const isSeen = status === 'seen';
+        const isCancelled = status === 'cancelled';
 
-      return `
-        <tr class="hover:bg-surface-hover/30 transition-colors border-b border-hairline">
-          <td class="px-4 md:px-6 py-4">
-             <div class="text-[13px] md:text-[14px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)} - ${fmtSlot(addSlot(slot, state.schedule.slotMinutes, a.durationSlots || 1))}</div>
-             <div class="flex gap-1 mt-1.5">
-               <span class="px-2 py-0.5 rounded bg-blue-500 text-white text-[9px] md:text-[10px] font-bold uppercase">${a.type === 'new' ? 'New' : 'Followup'}</span>
-               <span class="px-2 py-0.5 rounded bg-pink-500 text-white text-[9px] md:text-[10px] font-bold uppercase">${a.mode || 'Visit'}</span>
-             </div>
-          </td>
-          <td class="px-4 md:px-6 py-4">
-             <div class="text-[14px] md:text-[15px] font-bold text-ink cursor-pointer hover:underline" data-patient-id="${a.patientId}">${esc(a.patientName)}</div>
-             <div class="text-[12px] md:text-[13px] text-ink-mute mt-0.5">${esc(a.patientPhone || '')}</div>
-          </td>
-          <td class="px-4 md:px-6 py-4">${actionHtml}</td>
-        </tr>`;
-    }).join('');
-  }).join('');
+        const desktopActions = isCancelled
+          ? `<span class="text-[11px] md:text-[13px] font-bold text-red-500 uppercase">Cancelled</span>`
+          : isSeen
+            ? `<span class="text-[11px] md:text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
+            : `
+              <div class="hidden md:flex flex-nowrap gap-2 justify-end">
+                 <button data-action="seen" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+                   <i class="bi bi-check-circle-fill"></i> Complete
+                 </button>
+                 <button data-action="reschedule" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-orange-400 hover:bg-orange-500 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+                   <i class="bi bi-clock-fill"></i> Reschedule
+                 </button>
+                 <button data-action="delete" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+                   <i class="bi bi-trash-fill"></i> Delete
+                 </button>
+              </div>`;
 
-  root.querySelectorAll('[data-empty-slot]').forEach(el => {
-    el.addEventListener('click', () => onEmptySlotClick(el.getAttribute('data-empty-slot')));
+        // --- DESKTOP TABLE ROW (5 Columns) ---
+        tableHtml += `
+          <tr class="hover:bg-surface-hover/30 transition-colors border-b border-hairline cursor-pointer group" data-appt-id="${a.id}">
+            <td class="px-4 md:px-6 py-2.5 md:py-3 whitespace-nowrap text-[13px] font-bold text-ink">
+              ${fmtSlot(slot)} – ${fmtSlot(addSlot(slot, state.schedule.slotMinutes, a.durationSlots || 1))}
+            </td>
+            <td class="hidden md:table-cell px-2 py-3 whitespace-nowrap">
+              <div class="flex gap-1">
+                <span class="px-2 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'New' : 'F/U'}</span>
+                <span class="px-2 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode || 'Visit'}</span>
+              </div>
+            </td>
+            <td class="px-4 md:px-6 py-2.5 md:py-3 text-[14px] font-bold text-ink group-hover:text-accent transition-colors">
+              ${esc(a.patientName)}
+            </td>
+            <td class="hidden md:table-cell px-4 py-3 text-[13px] text-ink-mute whitespace-nowrap">
+              ${esc(a.patientPhone || '—')}
+            </td>
+            <td class="px-4 md:px-6 py-2.5 md:py-3 text-right">
+               ${desktopActions}
+            </td>
+          </tr>`;
+
+        // --- MOBILE LIST ROW (Single row, short badges, no phone) ---
+        mobileHtml += `
+          <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0" data-appt-id="${a.id}">
+            
+            <!-- Time (Start time only) -->
+            <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap">
+              ${fmtSlot(slot)}
+            </div>
+            
+            <!-- Patient Name (Truncates if too long) -->
+            <div class="flex-1 min-w-0 text-[13.5px] font-bold text-ink group-hover:text-accent transition-colors truncate">
+              ${esc(a.patientName)}
+            </div>
+            
+            <!-- Short Type Badges (N/F, V/C in one row) -->
+            <div class="shrink-0 flex items-center gap-1">
+              <span class="px-1.5 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'N' : 'F'}</span>
+              <span class="px-1.5 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode === 'call' ? 'C' : 'V'}</span>
+            </div>
+            
+          </div>`;
+      });
+    }
   });
 
-  root.querySelectorAll('[data-patient-id]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      location.href = `/patient?id=${encodeURIComponent(el.getAttribute('data-patient-id'))}`;
+  tableRoot.innerHTML = tableHtml;
+  mobileRoot.innerHTML = mobileHtml;
+
+  // Attach events to BOTH the Desktop Table and Mobile List
+  [tableRoot, mobileRoot].forEach(root => {
+    root.querySelectorAll('[data-empty-slot]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onEmptySlotClick(el.getAttribute('data-empty-slot'));
+      });
     });
-  });
 
-  root.querySelectorAll('[data-action]').forEach(el => {
-    el.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const action = el.getAttribute('data-action');
-      const id = el.getAttribute('data-id');
-      await handleRowAction(action, id);
+    root.querySelectorAll('[data-appt-id]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-action]')) return;
+        const id = el.getAttribute('data-appt-id');
+        const appt = state.appointments.find(a => a.id === id);
+        if (!appt) return;
+
+        if (window.innerWidth < 768) {
+          openRowModal(appt);
+        } else {
+          location.href = `/appointment?id=${encodeURIComponent(id)}`;
+        }
+      });
+    });
+
+    root.querySelectorAll('[data-action]').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const action = el.getAttribute('data-action');
+        const id = el.getAttribute('data-id');
+        await handleRowAction(action, id);
+      });
     });
   });
 }
 
 async function handleRowAction(action, id) {
-  if (action === 'seen') {
-    if (!confirm('Mark this appointment as Complete?')) return;
-    try {
-      await updateStatus(id, 'seen', '');
-      showToast('Appointment completed');
-    } catch (err) { showToast('Failed to update', 'error'); }
+  const appt = state.appointments.find(a => a.id === id);
+  if (!appt) return;
+
+  if (action === 'seen' || action === 'reschedule') {
+    openRowModal(appt);
+    if (action === 'reschedule') {
+      $('#ra-panel-actions')?.classList.add('hidden');
+      $('#ra-panel-reschedule')?.classList.remove('hidden');
+      populateRescheduleSlots();
+    } else {
+      $('#ra-panel-actions')?.classList.add('hidden');
+      $('#ra-panel-followup')?.classList.remove('hidden');
+      $('#ra-fu-date').value = '';
+      $('#ra-fu-interval').value = '';
+      try {
+        state.pendingFollowup = await findPendingForPatient(state.clinicId, appt.patientId);
+        const note = $('#ra-followup-note');
+        if (state.pendingFollowup && note) {
+          note.classList.remove('hidden');
+          note.innerHTML = `Patient already has a pending follow-up due <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>. Choosing a new one will <strong>replace</strong> it.`;
+        } else if (note) {
+          note.classList.add('hidden');
+        }
+      } catch (err) {}
+    }
+    return;
   }
-  
+
   if (action === 'delete') {
     if (!confirm('Are you sure you want to delete this appointment?')) return;
     try {
       await softDelete(id);
+      invalidateOccupancy(state.clinicId, appt.date);
       showToast('Appointment deleted');
-    } catch (err) { showToast('Failed to delete', 'error'); }
-  }
-
-  if (action === 'reschedule') {
-    location.href = `/appointment?id=${id}`;
+    } catch (err) {
+      showToast('Failed to delete', 'error');
+    }
   }
 }
 
@@ -275,20 +349,46 @@ function subscribe() {
 function wireNavButtons() {
   const prev = $('#day-prev');
   const next = $('#day-next');
-  const todayMobile = $('#day-today-mobile');
   const prevDesktop = $('#day-prev-desktop');
   const nextDesktop = $('#day-next-desktop');
   const today = $('#day-today');
+  const todayMobile = $('#day-today-mobile');
 
-  // Mobile: Yesterday / Today / Tomorrow
   if (prev) prev.addEventListener('click', () => goDate(addDays(todayISO(), -1)));
-  if (todayMobile) todayMobile.addEventListener('click', () => goDate(todayISO()));
   if (next) next.addEventListener('click', () => goDate(addDays(todayISO(), 1)));
+  if (todayMobile) todayMobile.addEventListener('click', () => goDate(todayISO()));
 
-  // Desktop: Day-by-day arrows
   if (prevDesktop) prevDesktop.addEventListener('click', () => goDate(addDays(state.dateISO, -1)));
   if (nextDesktop) nextDesktop.addEventListener('click', () => goDate(addDays(state.dateISO, 1)));
   if (today) today.addEventListener('click', () => goDate(todayISO()));
+}
+
+function wireDatePickers() {
+  // Mobile Date Picker
+  const mBtn = $('#mobile-date-picker-btn');
+  const mInput = $('#mobile-date-picker-input');
+  if (mBtn && mInput) {
+    mBtn.addEventListener('click', () => {
+      mInput.value = state.dateISO;
+      try { mInput.showPicker && mInput.showPicker(); } catch {}
+    });
+    mInput.addEventListener('change', (e) => {
+      if (e.target.value) goDate(e.target.value);
+    });
+  }
+
+  // Desktop Date Picker
+  const dBtn = $('#desktop-date-picker-btn');
+  const dInput = $('#desktop-date-picker-input');
+  if (dBtn && dInput) {
+    dBtn.addEventListener('click', () => {
+      dInput.value = state.dateISO;
+      try { dInput.showPicker && dInput.showPicker(); } catch {}
+    });
+    dInput.addEventListener('change', (e) => {
+      if (e.target.value) goDate(e.target.value);
+    });
+  }
 }
 
 function goDate(iso) {
@@ -303,4 +403,271 @@ function goDate(iso) {
 
 function onEmptySlotClick(slot) {
   location.href = `/book?date=${encodeURIComponent(state.dateISO)}&slot=${encodeURIComponent(slot)}`;
+}
+
+// ============================================================
+// ROW ACTION MODAL (mobile bottom-sheet, desktop centered card)
+// ============================================================
+
+function openRowModal(appt) {
+  state.activeAppt = appt;
+
+  const status = appt.status || 'booked';
+  const isSeen = status === 'seen';
+  const isCancelled = status === 'cancelled';
+
+  $('#ra-name').textContent = appt.patientName || 'Patient';
+  $('#ra-time').textContent = `${fmtSlot(appt.slot)} - ${fmtSlot(addSlot(appt.slot, state.schedule.slotMinutes, appt.durationSlots || 1))}`;
+  $('#ra-type').textContent = appt.type === 'new' ? 'New' : 'Followup';
+  $('#ra-mode').textContent = appt.mode || 'Visit';
+
+  const btnComplete = $('#ra-btn-complete');
+  const btnReschedule = $('#ra-btn-reschedule');
+  const btnCancel = $('#ra-btn-cancel');
+
+  if (isSeen || isCancelled) {
+    btnComplete.disabled = true;
+    btnComplete.classList.add('opacity-40');
+    btnReschedule.disabled = true;
+    btnReschedule.classList.add('opacity-40');
+    btnCancel.disabled = true;
+    btnCancel.classList.add('opacity-40');
+  } else {
+    btnComplete.disabled = false;
+    btnComplete.classList.remove('opacity-40');
+    btnReschedule.disabled = false;
+    btnReschedule.classList.remove('opacity-40');
+    btnCancel.disabled = false;
+    btnCancel.classList.remove('opacity-40');
+  }
+
+  $('#ra-panel-actions').classList.remove('hidden');
+  $('#ra-panel-followup').classList.add('hidden');
+  $('#ra-panel-reschedule').classList.add('hidden');
+  $('#ra-panel-cancel').classList.add('hidden');
+
+  const backdrop = $('#ra-backdrop');
+  const modal = $('#ra-modal');
+  backdrop.classList.remove('hidden');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  setTimeout(() => {
+    if (!btnComplete.disabled) btnComplete.focus();
+    else btnCancel.focus();
+  }, 150);
+}
+
+function closeRowModal() {
+  const backdrop = $('#ra-backdrop');
+  const modal = $('#ra-modal');
+  backdrop.classList.add('hidden');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  state.activeAppt = null;
+  state.pendingFollowup = null;
+}
+
+function wireRowModal() {
+  $('#ra-backdrop')?.addEventListener('click', closeRowModal);
+  $('#ra-close')?.addEventListener('click', closeRowModal);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.activeAppt) closeRowModal();
+  });
+
+  $('#ra-name')?.addEventListener('click', () => {
+    if (state.activeAppt) {
+      const pid = state.activeAppt.patientId;
+      closeRowModal();
+      location.href = `/patient?id=${encodeURIComponent(pid)}`;
+    }
+  });
+
+  ['#ra-res-date', '#ra-fu-date'].forEach(sel => {
+    const el = $(sel);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      try { el.showPicker && el.showPicker(); } catch {}
+    });
+  });
+
+  $('#ra-btn-complete')?.addEventListener('click', async () => {
+    const appt = state.activeAppt;
+    if (!appt) return;
+
+    $('#ra-panel-actions').classList.add('hidden');
+    $('#ra-panel-followup').classList.remove('hidden');
+
+    $('#ra-fu-date').value = '';
+    $('#ra-fu-interval').value = '';
+
+    try {
+      state.pendingFollowup = await findPendingForPatient(state.clinicId, appt.patientId);
+      const note = $('#ra-followup-note');
+      if (state.pendingFollowup && note) {
+        note.classList.remove('hidden');
+        note.innerHTML = `Patient already has a pending follow-up due <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>. Choosing a new one will <strong>replace</strong> it.`;
+      } else if (note) {
+        note.classList.add('hidden');
+      }
+    } catch (err) {}
+  });
+
+  $('#ra-btn-reschedule')?.addEventListener('click', () => {
+    $('#ra-panel-actions').classList.add('hidden');
+    $('#ra-panel-reschedule').classList.remove('hidden');
+    populateRescheduleSlots();
+  });
+
+  $('#ra-btn-cancel')?.addEventListener('click', () => {
+    $('#ra-panel-actions').classList.add('hidden');
+    $('#ra-panel-cancel').classList.remove('hidden');
+  });
+
+  $('#ra-res-date')?.addEventListener('change', () => {
+    populateRescheduleSlots();
+  });
+
+  $('#ra-followup-save')?.addEventListener('click', async () => {
+    const appt = state.activeAppt;
+    if (!appt) return;
+
+    const pickedDate = $('#ra-fu-date').value;
+    const pickedInterval = $('#ra-fu-interval').value;
+
+    let dueDate = null;
+    let days = null;
+
+    if (pickedDate) {
+      dueDate = pickedDate;
+    } else if (pickedInterval) {
+      days = Number(pickedInterval);
+      dueDate = intervalToDate(appt.date, days);
+    }
+
+    try {
+      await updateStatus(appt.id, 'seen', '');
+      invalidateOccupancy(state.clinicId, appt.date);
+
+      if (dueDate) {
+        if (state.pendingFollowup) {
+          await supersede(state.pendingFollowup.id, 'Replaced by new follow-up from visit on ' + appt.date);
+        }
+        await createFromVisit(appt, days || null, dueDate);
+      }
+
+      showToast('Marked as complete');
+      closeRowModal();
+    } catch (err) {
+      console.error(err);
+      showToast('Could not complete', 'error');
+    }
+  });
+
+  $('#ra-followup-back')?.addEventListener('click', () => {
+    $('#ra-panel-followup').classList.add('hidden');
+    $('#ra-panel-actions').classList.remove('hidden');
+  });
+
+  $('#ra-res-back')?.addEventListener('click', () => {
+    $('#ra-panel-reschedule').classList.add('hidden');
+    $('#ra-panel-actions').classList.remove('hidden');
+  });
+
+  $('#ra-res-save')?.addEventListener('click', async () => {
+    const appt = state.activeAppt;
+    if (!appt) return;
+
+    const newDate = $('#ra-res-date').value;
+    const newSlot = $('#ra-res-slot').value;
+    if (!newDate || !newSlot) { showToast('Pick date and slot', 'error'); return; }
+
+    try {
+      const occ = await checkSlotOccupancy({
+        clinicId: state.clinicId,
+        dateISO: newDate,
+        slot: newSlot,
+        excludeApptId: appt.id
+      });
+
+      if (occ.count > 0) {
+        const who = occ.conflict?.patientName || 'another patient';
+        const proceed = confirm(
+          `This slot already has ${occ.count} booking${occ.count > 1 ? 's' : ''} (${who}). Move anyway?`
+        );
+        if (!proceed) return;
+      }
+
+      await rescheduleAppt(appt.id, newDate, newSlot);
+      invalidateOccupancy(state.clinicId, appt.date);
+      invalidateOccupancy(state.clinicId, newDate);
+      showToast('Appointment moved');
+      closeRowModal();
+    } catch (err) {
+      console.error(err);
+      showToast('Could not move', 'error');
+    }
+  });
+
+  document.querySelectorAll('#ra-panel-cancel [data-reason]').forEach(el => {
+    el.addEventListener('click', async () => {
+      const reason = el.getAttribute('data-reason');
+      const appt = state.activeAppt;
+      try {
+        await updateStatus(appt.id, 'cancelled', reason);
+        invalidateOccupancy(state.clinicId, appt.date);
+        showToast('Appointment cancelled');
+        closeRowModal();
+      } catch (err) {
+        showToast('Could not cancel', 'error');
+      }
+    });
+  });
+
+  $('#ra-cancel-back')?.addEventListener('click', () => {
+    $('#ra-panel-cancel').classList.add('hidden');
+    $('#ra-panel-actions').classList.remove('hidden');
+  });
+}
+
+async function populateRescheduleSlots() {
+  const appt = state.activeAppt;
+  if (!appt) return;
+
+  if (!state.schedule) {
+    showToast('Could not load schedule', 'error');
+    return;
+  }
+
+  const dateInput = $('#ra-res-date');
+  const slotSelect = $('#ra-res-slot');
+  if (!dateInput || !slotSelect) return;
+
+  if (!dateInput.value) dateInput.value = appt.date;
+
+  const pickedDate = dateInput.value || appt.date;
+  const slots = generateSlots(state.schedule);
+
+  slotSelect.innerHTML = `<option value="">Loading slots…</option>`;
+
+  const occupancies = await Promise.all(
+    slots.map(slot =>
+      checkSlotOccupancy({
+        clinicId: state.clinicId,
+        dateISO: pickedDate,
+        slot,
+        excludeApptId: appt.id
+      }).catch(() => ({ count: 0, conflict: null }))
+    )
+  );
+
+  slotSelect.innerHTML = slots.map((s, i) => {
+    const occ = occupancies[i];
+    const isOriginal = s === appt.slot && pickedDate === appt.date;
+    const label = occ.count > 0
+      ? `${fmtSlot(s)} — Booked (${occ.conflict?.patientName || 'another'})`
+      : `${fmtSlot(s)} — Free`;
+    return `<option value="${s}" ${isOriginal ? 'selected' : ''}>${esc(label)}</option>`;
+  }).join('');
 }

@@ -2,37 +2,98 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 <BaseLayout title="Sign in">
-  <main class="min-h-screen grid place-items-center px-6">
-    <div class="w-full max-w-[360px]">
-      <div class="mb-8 text-center">
-        <div class="text-[12.5px] text-ink-faint mb-1">Asian Homeocare</div>
-        <h1 class="text-[22px] font-semibold">Appointments</h1>
+  <main class="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+
+    <!-- LEFT: Branding (Desktop only) -->
+    <div class="hidden lg:flex flex-col justify-between bg-ink p-12 relative overflow-hidden">
+      <!-- Background Pattern -->
+      <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(circle, white 1px, transparent 1px); background-size: 24px 24px;"></div>
+      
+      <!-- Top: Logo -->
+      <div class="relative z-10 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
+          <i class="bi bi-calendar2-check text-white text-[18px]"></i>
+        </div>
+        <div class="text-[15px] font-bold text-white tracking-tight">Asian Homeocare</div>
       </div>
-      <form id="login-form" class="space-y-3" novalidate>
-        <div>
-          <label for="email" class="block text-[12.5px] text-ink-mute mb-1">Email</label>
-          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required
-            class="w-full h-11 px-3 rounded-lg border border-hairline bg-white text-[14px] focus:outline-none focus:shadow-focus focus:border-accent" />
-        </div>
-        <div>
-          <label for="password" class="block text-[12.5px] text-ink-mute mb-1">Password</label>
-          <input id="password" name="password" type="password" autocomplete="current-password" required
-            class="w-full h-11 px-3 rounded-lg border border-hairline bg-white text-[14px] focus:outline-none focus:shadow-focus focus:border-accent" />
-        </div>
-        <p id="err" hidden class="text-[13px] text-[#b91c1c]" role="alert"></p>
-        <button id="submit" type="submit"
-          class="w-full h-11 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-          Sign in
-        </button>
-      </form>
-      <p id="no-profile" hidden class="mt-6 text-[12.5px] text-ink-mute text-center leading-relaxed">
-        Your account has no profile in this system.<br />
-        Contact the clinic admin.
-      </p>
+
+      <!-- Middle: Big Copy -->
+      <div class="relative z-10 max-w-md">
+        <h1 class="text-[42px] font-extrabold text-white leading-[1.1] tracking-tight mb-6">
+          Schedule your clinic's day in seconds.
+        </h1>
+        <p class="text-[15px] text-white/60 leading-relaxed">
+          The all-in-one appointment manager for Hubballi and Vijayawada. Book, follow up, and manage your patients — without the paperwork.
+        </p>
+      </div>
+
+      <!-- Bottom: Footer -->
+      <div class="relative z-10 flex items-center gap-2 text-[12px] text-white/40 font-medium">
+        <i class="bi bi-shield-check"></i> Secure clinic portal
+      </div>
     </div>
+
+    <!-- RIGHT: Form -->
+    <div class="flex items-center justify-center px-6 py-12 bg-surface relative">
+      <div class="w-full max-w-[380px]">
+        
+        <!-- Mobile Logo -->
+        <div class="lg:hidden mb-10 text-center flex flex-col items-center">
+          <div class="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center mb-4 shadow-lg shadow-accent/20">
+            <i class="bi bi-calendar2-check text-white text-[24px]"></i>
+          </div>
+          <div class="text-[12.5px] font-bold uppercase tracking-widest text-ink-faint mb-1">Asian Homeocare</div>
+          <h1 class="text-[24px] font-bold text-ink tracking-tight">Welcome Back</h1>
+        </div>
+
+        <!-- Desktop Title -->
+        <div class="hidden lg:block mb-8">
+          <h2 class="text-[26px] font-bold text-ink tracking-tight mb-1">Sign in</h2>
+          <p class="text-[13px] text-ink-mute">Enter your credentials to access your schedule.</p>
+        </div>
+
+        <form id="login-form" class="space-y-4" novalidate>
+          <div>
+            <label for="email" class="block text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-1.5">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required
+              class="w-full h-12 px-4 rounded-xl border border-hairline bg-white text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" 
+              placeholder="you@clinic.com" />
+          </div>
+          
+          <div>
+            <div class="flex justify-between items-baseline mb-1.5">
+              <label for="password" class="block text-[11px] font-bold uppercase tracking-widest text-ink-mute">Password</label>
+            </div>
+            <input id="password" name="password" type="password" autocomplete="current-password" required
+              class="w-full h-12 px-4 rounded-xl border border-hairline bg-white text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" 
+              placeholder="••••••••" />
+          </div>
+
+          <p id="err" hidden class="text-[13px] font-medium text-red-500 bg-red-50 px-3 py-2 rounded-lg border border-red-100" role="alert"></p>
+          
+          <button id="submit" type="submit"
+            class="w-full h-12 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-sm mt-2">
+            Sign in
+          </button>
+        </form>
+
+        <p id="no-profile" hidden class="mt-6 text-[12.5px] text-ink-mute text-center leading-relaxed bg-orange-50 text-orange-600 p-3 rounded-lg border border-orange-100">
+          Your account has no profile in this system.<br />
+          Please contact the clinic admin.
+        </p>
+
+        <p class="hidden lg:block mt-8 text-center text-[12px] text-ink-faint">
+          © Asian Homeocare. All rights reserved.
+        </p>
+
+      </div>
+    </div>
+
   </main>
+
   <script>
     import { signIn } from '../js/lib/auth.js';
+
     const params = new URLSearchParams(location.search);
     const form = document.getElementById('login-form');
     const emailEl = document.getElementById('email');
@@ -40,15 +101,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const errEl = document.getElementById('err');
     const btn = document.getElementById('submit');
     const noProfile = document.getElementById('no-profile');
+
     if (params.get('error') === 'no-profile') noProfile.hidden = false;
+
     const showError = (msg) => { errEl.textContent = msg; errEl.hidden = false; };
     const setBusy = (busy) => { btn.disabled = busy; btn.textContent = busy ? 'Signing in…' : 'Sign in'; };
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       errEl.hidden = true;
       const email = emailEl.value.trim();
       const password = passEl.value;
       if (!email || !password) { showError('Enter your email and password.'); return; }
+      
       setBusy(true);
       try {
         await signIn(email, password);
@@ -62,6 +127,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         setBusy(false);
       }
     });
-    if (window.matchMedia('(min-width: 768px)').matches) emailEl.focus();
+
+    if (window.matchMedia('(min-width: 1024px)').matches) emailEl.focus();
   </script>
 </BaseLayout>

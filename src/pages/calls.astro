@@ -2,61 +2,71 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Calls">
-  <div class="max-w-[860px]">
+  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
 
-    <div class="px-4 md:px-6 py-4 border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10 flex items-center justify-between">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Phone</div>
-        <div class="flex items-baseline gap-2">
-          <div class="text-[17px] font-semibold">Calls</div>
-          <div id="calls-sub" class="text-[12.5px] text-ink-mute"></div>
+        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Phone</div>
+        <div class="flex items-center gap-3">
+          <div class="text-[22px] font-bold text-ink tracking-tight">Pending Calls</div>
+          <div id="calls-sub" class="text-[12px] font-semibold text-accent bg-accent-soft px-2 py-0.5 rounded-full">—</div>
         </div>
       </div>
       <button id="calls-new" type="button"
-        class="h-9 px-3.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium transition-colors inline-flex items-center gap-1.5">
-        <i class="bi bi-plus-lg text-[12px]" aria-hidden="true"></i>
-        New call
+        class="h-10 px-5 rounded-xl bg-ink hover:bg-ink/90 text-white text-[13px] font-bold transition-colors shadow-sm flex items-center gap-2">
+        <i class="bi bi-plus-lg"></i> Add Call
       </button>
     </div>
 
-    <div id="calls-list"></div>
+    <!-- List Container -->
+    <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline">
+      <div id="calls-list" class="divide-y divide-hairline">
+        <!-- Filled by JS -->
+      </div>
+    </div>
 
   </div>
 
   <!-- New call modal -->
-  <div id="newcall-backdrop" hidden
-    class="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"></div>
+  <div id="newcall-backdrop" hidden class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"></div>
+  
   <div id="newcall-modal" hidden
-    class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(92vw,480px)]
-           bg-white rounded-2xl shadow-panel border border-hairline overflow-hidden">
-    <div class="px-5 pt-5 pb-3 border-b border-hairline flex items-center justify-between">
-      <div class="text-[15px] font-semibold">Log a call</div>
+    class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(94vw,500px)]
+           bg-white rounded-2xl shadow-xl border border-hairline overflow-hidden transform transition-all">
+    
+    <!-- Modal Header -->
+    <div class="px-5 py-4 border-b border-hairline flex items-center justify-between bg-surface-hover/30">
+      <div class="text-[16px] font-bold text-ink">Add Call</div>
       <button id="newcall-close" type="button" aria-label="Close"
-        class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover">
-        <i class="bi bi-x-lg text-[13px]" aria-hidden="true"></i>
+        class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute">
+        <i class="bi bi-x-lg text-[16px]"></i>
       </button>
     </div>
-    <div class="px-5 py-4 space-y-3">
+    
+    <!-- Modal Body -->
+    <div class="p-5 space-y-4">
       <div>
-        <label class="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1.5">Patient</label>
-        <input id="nc-search" type="text" autocomplete="off" placeholder="Search by name or phone"
-          class="w-full h-11 px-3 rounded-lg border border-hairline bg-white text-[14px]
-                 focus:outline-none focus:shadow-focus focus:border-accent" />
-        <div id="nc-results" class="mt-2 rounded-lg border border-hairline bg-white overflow-hidden max-h-[180px] overflow-y-auto"></div>
-        <div id="nc-chosen" hidden class="mt-2 px-3 py-2 rounded-lg bg-accent-soft text-accent text-[13px]"></div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Patient</label>
+        <input id="nc-search" type="text" autocomplete="off" placeholder="Search by name or phone..."
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+        <div id="nc-results" class="mt-2 rounded-xl border border-hairline bg-white overflow-hidden max-h-[180px] overflow-y-auto shadow-sm empty:hidden"></div>
+        <div id="nc-chosen" hidden class="mt-2 px-3 py-2.5 rounded-xl bg-accent-soft text-accent font-medium text-[13px] border border-accent/20"></div>
       </div>
+      
       <div>
-        <label class="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1.5">Reason</label>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Reason</label>
         <textarea id="nc-reason" rows="3" placeholder="What did they call about?"
-          class="w-full px-3 py-2 rounded-lg border border-hairline bg-white text-[14px] resize-none
-                 focus:outline-none focus:shadow-focus focus:border-accent"></textarea>
+          class="w-full px-4 py-3 rounded-xl border border-hairline bg-surface text-[14px] resize-none focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"></textarea>
       </div>
     </div>
-    <div class="px-5 py-4 border-t border-hairline flex gap-2">
+    
+    <!-- Modal Footer -->
+    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3">
       <button id="newcall-cancel" type="button"
-        class="flex-1 h-11 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-medium">Cancel</button>
+        class="flex-1 h-10 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
       <button id="newcall-save" type="button" disabled
-        class="flex-1 h-11 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium disabled:opacity-60 disabled:cursor-not-allowed">Log call</button>
+        class="flex-1 h-10 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">Add Call</button>
     </div>
   </div>
 
@@ -78,43 +88,52 @@ import AppLayout from '../layouts/AppLayout.astro';
 
     function esc(s) {
       return String(s == null ? '' : s)
-        .split('&').join('&amp;')
-        .split('<').join('&lt;')
-        .split('>').join('&gt;')
-        .split('"').join('&quot;')
-        .split("'").join('&#39;');
+        .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
+        .split('"').join('&quot;').split("'").join('&#39;');
     }
 
     // ---------- list ----------
     function render() {
       const root = $('#calls-list');
       const sub = $('#calls-sub');
-      if (sub) sub.textContent = state.pending.length === 0 ? 'Nothing pending' : `${state.pending.length} pending`;
+      if (sub) sub.textContent = state.pending.length === 0 ? 'None' : `${state.pending.length} pending`;
 
       if (state.pending.length === 0) {
         root.innerHTML = `
-          <div class="p-10 text-center">
-            <div class="text-[14px] text-ink-mute mb-1">No pending calls.</div>
-            <div class="text-[12.5px] text-ink-faint">Tap "New call" when a patient calls in.</div>
+          <div class="p-12 text-center flex flex-col items-center justify-center">
+            <div class="w-16 h-16 bg-surface-hover rounded-full flex items-center justify-center mb-4">
+               <i class="bi bi-telephone text-[24px] text-ink-faint"></i>
+            </div>
+            <div class="text-[15px] font-bold text-ink mb-1">No pending calls</div>
+            <div class="text-[13px] text-ink-mute mb-4">When a patient calls in with an issue, log it here.</div>
+            <button id="empty-new-btn" class="h-9 px-4 rounded-lg bg-accent text-white text-[13px] font-bold shadow-sm hover:bg-accent-hover transition-colors">Add Call</button>
           </div>`;
+        
+        const emptyBtn = $('#empty-new-btn');
+        if (emptyBtn) emptyBtn.addEventListener('click', openModal);
         return;
       }
 
-      root.innerHTML = `
-        <div class="px-4 md:px-6 pt-5 pb-2">
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Pending · ${state.pending.length}</div>
-        </div>
-        ${state.pending.map((c) => `
-          <div data-call-id="${esc(c.id)}"
-            class="flex items-center gap-3 px-4 md:px-6 h-[64px] border-b border-hairline hover:bg-surface-hover cursor-pointer">
-            <div class="flex-1 min-w-0">
-              <div class="text-[14.5px] font-medium truncate">${esc(c.patientName || 'Patient')}</div>
-              <div class="text-[12.5px] text-ink-mute truncate">${esc(c.reason || c.patientPhone || '')}</div>
-            </div>
-            <div class="shrink-0 text-ink-faint">
-              <i class="bi bi-chevron-right text-[13px]" aria-hidden="true"></i>
-            </div>
-          </div>`).join('')}`;
+      root.innerHTML = state.pending.map((c) => `
+        <div data-call-id="${esc(c.id)}"
+          class="flex items-center gap-4 px-4 md:px-6 py-4 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline last:border-b-0">
+          
+          <!-- Avatar/Icon -->
+          <div class="w-10 h-10 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center shrink-0">
+            <i class="bi bi-telephone-fill text-[15px]"></i>
+          </div>
+
+          <!-- Details -->
+          <div class="flex-1 min-w-0">
+            <div class="text-[15px] font-bold text-ink truncate">${esc(c.patientName || 'Patient')}</div>
+            <div class="text-[13px] text-ink-mute truncate mt-0.5">${esc(c.reason || c.patientPhone || 'No reason provided')}</div>
+          </div>
+          
+          <!-- Action -->
+          <div class="shrink-0 text-ink-faint">
+            <i class="bi bi-chevron-right text-[16px]"></i>
+          </div>
+        </div>`).join('');
 
       root.querySelectorAll('[data-call-id]').forEach((el) => {
         el.addEventListener('click', () => {
@@ -127,7 +146,6 @@ import AppLayout from '../layouts/AppLayout.astro';
       try {
         state.pending = await listPending(state.clinicId);
       } catch (err) {
-        console.error('[calls] load failed:', err);
         state.pending = [];
       }
       render();
@@ -135,8 +153,11 @@ import AppLayout from '../layouts/AppLayout.astro';
 
     // ---------- new call modal ----------
     function openModal() {
-      $('#newcall-backdrop').hidden = false;
-      $('#newcall-modal').hidden = false;
+      const backdrop = $('#newcall-backdrop');
+      const modal = $('#newcall-modal');
+      backdrop.hidden = false;
+      modal.hidden = false;
+      
       state.newCallPatient = null;
       $('#nc-search').value = '';
       $('#nc-reason').value = '';
@@ -176,7 +197,7 @@ import AppLayout from '../layouts/AppLayout.astro';
         $('#nc-search').value = state.newCallPatient.name;
         $('#nc-results').innerHTML = '';
         const chosen = $('#nc-chosen');
-        chosen.textContent = 'Selected: ' + state.newCallPatient.name;
+        chosen.innerHTML = `<i class="bi bi-check-circle-fill mr-1"></i> ${esc(state.newCallPatient.name)}`;
         chosen.hidden = false;
         updateSaveState();
       });
@@ -203,14 +224,14 @@ import AppLayout from '../layouts/AppLayout.astro';
         }
         const root = $('#nc-results');
         if (merged.length === 0) {
-          root.innerHTML = `<div class="px-3 py-2 text-[12.5px] text-ink-faint">No matches</div>`;
+          root.innerHTML = `<div class="px-3 py-3 text-[13px] text-ink-faint">No matches found</div>`;
           return;
         }
         root.innerHTML = merged.map((p) => `
           <div data-pid="${p.id}" data-pname="${esc(p.name)}" data-pphone="${esc(p.phone || '')}"
-            class="px-3 py-2 hover:bg-surface-hover cursor-pointer border-b border-hairline last:border-b-0">
-            <div class="text-[14px] font-medium">${esc(p.name)}</div>
-            ${p.phone ? `<div class="text-[12px] text-ink-mute">${esc(p.phone)}</div>` : ''}
+            class="px-4 py-3 hover:bg-surface-hover cursor-pointer border-b border-hairline last:border-b-0 transition-colors">
+            <div class="text-[14px] font-bold text-ink">${esc(p.name)}</div>
+            ${p.phone ? `<div class="text-[12px] text-ink-mute mt-0.5">${esc(p.phone)}</div>` : ''}
           </div>`).join('');
       } catch (err) {
         console.error('[calls] search failed:', err);
@@ -220,6 +241,8 @@ import AppLayout from '../layouts/AppLayout.astro';
     async function saveCall() {
       if (state.saving) return;
       state.saving = true;
+      $('#newcall-save').textContent = 'Saving...';
+      
       try {
         await createCall({
           clinicId: state.clinicId,
@@ -228,14 +251,14 @@ import AppLayout from '../layouts/AppLayout.astro';
           patientPhone: state.newCallPatient.phone,
           reason: $('#nc-reason').value.trim()
         });
-        showToast('Call logged');
+        showToast('Call added');
         closeModal();
         await load();
       } catch (err) {
-        console.error('[calls] save failed:', err);
-        showToast('Could not log call', 'error');
+        showToast('Could not add call', 'error');
       } finally {
         state.saving = false;
+        $('#newcall-save').textContent = 'Add Call';
         updateSaveState();
       }
     }

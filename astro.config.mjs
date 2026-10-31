@@ -4,7 +4,7 @@ import tailwind from '@astrojs/tailwind';
 export default defineConfig({
   output: 'static',
   integrations: [tailwind({ applyBaseStyles: false })],
-  build: { format: 'file' },
+  build: { format: 'directory' },
   vite: {
     build: {
       rollupOptions: {

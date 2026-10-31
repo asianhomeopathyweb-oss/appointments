@@ -2,67 +2,107 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Settings">
-  <div class="p-6 md:p-8 max-w-[720px]">
-    <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">
-      Admin
-    </div>
-    <div class="text-[22px] font-semibold mb-8">Clinic Schedule</div>
+  <div class="w-full max-w-[900px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
 
-    <form id="settings-form" class="space-y-6 bg-white rounded-xl border border-hairline p-6">
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[13px] font-medium text-ink mb-1">Opening Time</label>
-          <input type="time" id="set-open" required class="w-full h-10 px-3 rounded-lg border border-hairline text-[14px]">
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium text-ink mb-1">Closing Time</label>
-          <input type="time" id="set-close" required class="w-full h-10 px-3 rounded-lg border border-hairline text-[14px]">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[13px] font-medium text-ink mb-1">Slot Duration (mins)</label>
-          <input type="number" id="set-slot" required min="5" step="5" class="w-full h-10 px-3 rounded-lg border border-hairline text-[14px]">
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium text-ink mb-1">Slots for New Patients</label>
-          <input type="number" id="set-new-slots" required min="1" step="1" class="w-full h-10 px-3 rounded-lg border border-hairline text-[14px]">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[13px] font-medium text-ink mb-1">Break Start (optional)</label>
-          <input type="time" id="set-break-start" class="w-full h-10 px-3 rounded-lg border border-hairline text-[14px]">
-        </div>
-        <div>
-          <label class="block text-[13px] font-medium text-ink mb-1">Break End (optional)</label>
-          <input type="time" id="set-break-end" class="w-full h-10 px-3 rounded-lg border border-hairline text-[14px]">
-        </div>
-      </div>
-
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <label class="block text-[13px] font-medium text-ink mb-2">Days Open</label>
-        <div class="flex gap-3 flex-wrap">
-          <label class="flex items-center gap-2 text-[13px]"><input type="checkbox" name="days" value="0" class="rounded border-hairline"> Sun</label>
-          <label class="flex items-center gap-2 text-[13px]"><input type="checkbox" name="days" value="1" class="rounded border-hairline"> Mon</label>
-          <label class="flex items-center gap-2 text-[13px]"><input type="checkbox" name="days" value="2" class="rounded border-hairline"> Tue</label>
-          <label class="flex items-center gap-2 text-[13px]"><input type="checkbox" name="days" value="3" class="rounded border-hairline"> Wed</label>
-          <label class="flex items-center gap-2 text-[13px]"><input type="checkbox" name="days" value="4" class="rounded border-hairline"> Thu</label>
-          <label class="flex items-center gap-2 text-[13px]"><input type="checkbox" name="days" value="5" class="rounded border-hairline"> Fri</label>
-          <label class="flex items-center gap-2 text-[13px]"><input type="checkbox" name="days" value="6" class="rounded border-hairline"> Sat</label>
+        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Admin</div>
+        <div class="text-[24px] font-bold text-ink tracking-tight">Clinic Schedule</div>
+      </div>
+    </div>
+
+    <!-- Form Card -->
+    <form id="settings-form" class="bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden flex flex-col flex-1 max-h-[calc(100vh-180px)]">
+      
+      <!-- Scrollable Form Body -->
+      <div class="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
+        
+        <!-- Operating Hours -->
+        <div>
+          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">Operating Hours</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label class="block text-[13px] font-medium text-ink mb-1.5">Opening Time</label>
+              <input type="time" id="set-open" required class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-ink mb-1.5">Closing Time</label>
+              <input type="time" id="set-close" required class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            </div>
+          </div>
         </div>
+
+        <!-- Slot Configuration -->
+        <div>
+          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">Slot Configuration</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label class="block text-[13px] font-medium text-ink mb-1.5">Slot Duration (mins)</label>
+              <input type="number" id="set-slot" required min="5" step="5" class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-ink mb-1.5">Slots for New Patients</label>
+              <input type="number" id="set-new-slots" required min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            </div>
+          </div>
+        </div>
+
+        <!-- Break Time -->
+        <div>
+          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">Break Time (Optional)</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label class="block text-[13px] font-medium text-ink mb-1.5">Break Start</label>
+              <input type="time" id="set-break-start" class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            </div>
+            <div>
+              <label class="block text-[13px] font-medium text-ink mb-1.5">Break End</label>
+              <input type="time" id="set-break-end" class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            </div>
+          </div>
+        </div>
+
+        <!-- Days Open -->
+        <div>
+          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">Days Open</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+            <label class="flex items-center justify-center gap-2 h-10 rounded-lg border border-hairline text-[13px] font-medium cursor-pointer hover:border-accent transition-colors has-[:checked]:bg-accent has-[:checked]:text-white has-[:checked]:border-accent">
+              <input type="checkbox" name="days" value="0" class="hidden"> Sun
+            </label>
+            <label class="flex items-center justify-center gap-2 h-10 rounded-lg border border-hairline text-[13px] font-medium cursor-pointer hover:border-accent transition-colors has-[:checked]:bg-accent has-[:checked]:text-white has-[:checked]:border-accent">
+              <input type="checkbox" name="days" value="1" class="hidden"> Mon
+            </label>
+            <label class="flex items-center justify-center gap-2 h-10 rounded-lg border border-hairline text-[13px] font-medium cursor-pointer hover:border-accent transition-colors has-[:checked]:bg-accent has-[:checked]:text-white has-[:checked]:border-accent">
+              <input type="checkbox" name="days" value="2" class="hidden"> Tue
+            </label>
+            <label class="flex items-center justify-center gap-2 h-10 rounded-lg border border-hairline text-[13px] font-medium cursor-pointer hover:border-accent transition-colors has-[:checked]:bg-accent has-[:checked]:text-white has-[:checked]:border-accent">
+              <input type="checkbox" name="days" value="3" class="hidden"> Wed
+            </label>
+            <label class="flex items-center justify-center gap-2 h-10 rounded-lg border border-hairline text-[13px] font-medium cursor-pointer hover:border-accent transition-colors has-[:checked]:bg-accent has-[:checked]:text-white has-[:checked]:border-accent">
+              <input type="checkbox" name="days" value="4" class="hidden"> Thu
+            </label>
+            <label class="flex items-center justify-center gap-2 h-10 rounded-lg border border-hairline text-[13px] font-medium cursor-pointer hover:border-accent transition-colors has-[:checked]:bg-accent has-[:checked]:text-white has-[:checked]:border-accent">
+              <input type="checkbox" name="days" value="5" class="hidden"> Fri
+            </label>
+            <label class="flex items-center justify-center gap-2 h-10 rounded-lg border border-hairline text-[13px] font-medium cursor-pointer hover:border-accent transition-colors has-[:checked]:bg-accent has-[:checked]:text-white has-[:checked]:border-accent">
+              <input type="checkbox" name="days" value="6" class="hidden"> Sat
+            </label>
+          </div>
+        </div>
+
       </div>
 
-      <div class="pt-2 flex justify-end">
+      <!-- Sticky Footer -->
+      <div class="px-6 md:px-8 py-5 border-t border-hairline bg-surface-hover/30 flex justify-end gap-3 shrink-0">
         <button type="submit" id="settings-save"
-          class="h-10 px-6 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium transition-colors">
-          Save changes
+          class="h-11 px-8 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold transition-all shadow-sm">
+          Save Changes
         </button>
       </div>
+
     </form>
+
   </div>
 
   <script>

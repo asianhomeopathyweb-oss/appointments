@@ -2,30 +2,64 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Patient">
-  <div class="max-w-[860px]">
+  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
 
-    <div class="px-4 md:px-6 py-4 border-b border-hairline bg-white/80 backdrop-blur sticky top-0 z-10">
-      <div class="flex items-start gap-3">
-        <div class="flex-1 min-w-0">
-          <div id="pt-name" class="text-[18px] font-semibold truncate">—</div>
-          <div id="pt-phone" class="text-[12.5px] text-ink-mute truncate">—</div>
-        </div>
-        <div class="flex gap-2 shrink-0">
-          <button id="pt-book" type="button"
-            class="h-9 px-3.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors">
-            <i class="bi bi-plus-lg text-[11px]" aria-hidden="true"></i>
-            Book
-          </button>
-          <button id="pt-call" type="button"
-            class="h-9 px-3.5 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors">
-            <i class="bi bi-telephone text-[11px]" aria-hidden="true"></i>
-            Call
-          </button>
-        </div>
+    <!-- Header -->
+    <div class="flex items-center gap-4 mb-6">
+      <button id="pt-back" type="button" onclick="history.back()" aria-label="Back"
+        class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all">
+        <i class="bi bi-arrow-left text-[18px]"></i>
+      </button>
+      <div>
+        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Patient</div>
+        <div id="pt-name" class="text-[22px] font-bold text-ink tracking-tight">—</div>
+        <div id="pt-phone" class="text-[13px] text-ink-mute mt-0.5">—</div>
       </div>
     </div>
 
-    <div id="pt-sections"></div>
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+      
+      <!-- LEFT: Actions -->
+      <div class="lg:col-span-4 flex flex-col gap-6">
+        
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-6">
+          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">Quick Actions</div>
+          
+          <button id="pt-book" type="button"
+            class="w-full h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2 mb-3">
+            <i class="bi bi-calendar-plus"></i> Book Appointment
+          </button>
+          
+          <button id="pt-call" type="button"
+            class="w-full h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+            <i class="bi bi-telephone"></i> Call Patient
+          </button>
+        </div>
+
+        <div class="bg-gradient-to-br from-accent-soft to-surface rounded-2xl border border-accent/10 p-6 flex-1">
+          <div class="text-[11px] font-bold tracking-widest text-accent uppercase mb-2">Tip</div>
+          <div class="text-[13px] font-medium text-ink-mute leading-relaxed">
+            Click any visit or follow-up on the right to see full details and take action.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: History -->
+      <div class="lg:col-span-8 flex flex-col">
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline flex flex-col flex-1 overflow-hidden">
+          
+          <div class="px-6 py-4 border-b border-hairline bg-surface-hover/30">
+            <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase">History & Upcoming</div>
+          </div>
+
+          <div id="pt-sections" class="flex-1 overflow-y-auto divide-y divide-hairline"></div>
+
+        </div>
+      </div>
+
+    </div>
 
   </div>
 

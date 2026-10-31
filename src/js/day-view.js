@@ -64,7 +64,6 @@ function renderHeader() {
   const subEl = $('#day-sub');
   if (dateEl) dateEl.textContent = fmtDate(state.dateISO);
   
-  // Update the pill under the date
   if (subEl) {
     const total = state.appointments.filter((a) => a.status !== 'cancelled').length;
     const seen = state.appointments.filter((a) => a.status === 'seen').length;
@@ -74,13 +73,11 @@ function renderHeader() {
   const todayBtn = $('#day-today');
   if (todayBtn) todayBtn.hidden = isToday(state.dateISO);
 
-  // Calculate the week
   const today = todayISO();
   const start = addDays(state.dateISO, -3);
   const days = [];
   for (let i = 0; i < 7; i++) days.push(addDays(start, i));
 
-  // Render the compact strip
   const strip = $('#day-strip');
   if (strip) {
     strip.innerHTML = days.map(iso => {
@@ -90,7 +87,6 @@ function renderHeader() {
       const dayName = ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()];
       const dayNum = d.getDate();
 
-      // Styling logic for the inner buttons
       const cls = isSelected
         ? 'bg-ink text-white shadow-md'
         : isTodayDate
@@ -180,7 +176,6 @@ function renderGrid() {
     }).join('');
   }).join('');
 
-  // Attach events
   root.querySelectorAll('[data-empty-slot]').forEach(el => {
     el.addEventListener('click', () => onEmptySlotClick(el.getAttribute('data-empty-slot')));
   });
@@ -249,6 +244,7 @@ function subscribe() {
     state.dateISO,
     (rows) => {
       state.appointments = rows;
+      renderHeader();
       renderGrid();
     },
     (err) => console.error(err)

@@ -1,13 +1,5 @@
-// ============================================================
+﻿// ============================================================
 // Follow-ups
-//
-// Follow-ups are reminders that a patient should come back.
-// They are NOT appointments — no slot, no order, no status
-// beyond pending / done / cancelled / superseded.
-//
-// Search approach: single-field queries, filter in JavaScript.
-// Avoids composite indexes. For a clinic with hundreds of
-// patients, this is fast enough.
 // ============================================================
 
 import {
@@ -28,10 +20,6 @@ import { writeAudit } from './lib/activity-log.js';
 
 const FETCH_LIMIT = 1000;
 
-/**
- * Fetch all follow-ups for a clinic, then filter in JS.
- * Only requires a single-field index on clinicId.
- */
 async function fetchAll(clinicId) {
   const q = query(
     collection(db, 'followUps'),
@@ -44,10 +32,6 @@ async function fetchAll(clinicId) {
     .slice(0, FETCH_LIMIT);
 }
 
-/**
- * Pending follow-ups due on or before a date.
- * Sorted by dueDate ascending.
- */
 export async function listDue(clinicId, upToDateISO) {
   const all = await fetchAll(clinicId);
   return all
@@ -56,10 +40,6 @@ export async function listDue(clinicId, upToDateISO) {
     .sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
 }
 
-/**
- * Pending follow-ups due on a specific date.
- * Sorted by patient name (case-insensitive).
- */
 export async function listForDate(clinicId, dateISO) {
   const all = await fetchAll(clinicId);
   return all
@@ -68,9 +48,6 @@ export async function listForDate(clinicId, dateISO) {
     .sort((a, b) => (a.patientName || '').toLowerCase().localeCompare((b.patientName || '').toLowerCase()));
 }
 
-/**
- * All follow-ups for a patient, newest first.
- */
 export async function listForPatient(clinicId, patientId) {
   const all = await fetchAll(clinicId);
   return all
@@ -78,23 +55,18 @@ export async function listForPatient(clinicId, patientId) {
     .sort((a, b) => (b.dueDate || '').localeCompare(a.dueDate || ''));
 }
 
-/** Fetch one follow-up by id. */
 export async function get(id) {
   const snap = await getDoc(doc(db, 'followUps', id));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() };
 }
 
-/** The single pending follow-up for a patient, or null. */
 export async function findPendingForPatient(clinicId, patientId) {
   const all = await fetchAll(clinicId);
   const match = all.find((x) => x.patientId === patientId && x.status === 'pending');
   return match || null;
 }
 
-/**
- * Create a follow-up from a visit.
- */
 export async function createFromVisit(appointment, intervalDays, dueDate) {
   const m = me();
   const seenOn = appointment.date;
@@ -129,7 +101,6 @@ export async function createFromVisit(appointment, intervalDays, dueDate) {
   return ref.id;
 }
 
-/** Mark a follow-up done or cancelled with a note. */
 export async function resolve(id, status, note) {
   const m = me();
   const entry = {
@@ -147,7 +118,6 @@ export async function resolve(id, status, note) {
   try { await writeAudit('followup_resolved', id); } catch {}
 }
 
-/** Mark a follow-up superseded (replaced by a newer one). */
 export async function supersede(id, note) {
   const m = me();
   const entry = {
@@ -165,7 +135,6 @@ export async function supersede(id, note) {
   try { await writeAudit('followup_superseded', id); } catch {}
 }
 
-/** Change the due date of a pending follow-up. */
 export async function move(id, newDueDate, note) {
   const m = me();
   const entry = {
@@ -183,7 +152,6 @@ export async function move(id, newDueDate, note) {
   });
 }
 
-/** Append a note to the history without changing status. */
 export async function addNote(id, note) {
   const m = me();
   const entry = {

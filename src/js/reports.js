@@ -1,7 +1,7 @@
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from './lib/firebase-init.js';
 import { getActiveClinicId } from './lib/clinic-context.js';
-import { addDays, todayISO, fmtDate } from './date-utils.js';
+import { addDays, todayISO } from './date-utils.js';
 
 // Fetch and filter helpers (No composite indexes required)
 export async function fetchNewPatients(startISO, endISO) {

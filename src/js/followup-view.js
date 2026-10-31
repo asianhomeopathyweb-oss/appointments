@@ -1,15 +1,5 @@
 // ============================================================
 // Followup view
-//
-// Controller for /followup?id=...
-//
-// Shows one follow-up with full history, and offers:
-//   - Call              -> tel: link on mobile, copy on desktop
-//   - Book              -> navigate to /book?patientId=...
-//   - Move              -> pick a new date
-//   - Add note          -> append to history
-//   - Mark done         -> status = done
-//   - Cancel            -> status = cancelled
 // ============================================================
 
 import { me } from './lib/auth-guards.js';
@@ -69,13 +59,13 @@ function render() {
       rel.textContent = '';
     } else if (isPast(f.dueDate)) {
       rel.textContent = 'Overdue';
-      rel.className = 'text-[12.5px] text-[#b91c1c] font-medium';
+      rel.className = 'text-[12px] text-red-500 font-bold uppercase tracking-wider';
     } else if (f.dueDate === todayISO()) {
       rel.textContent = 'Due today';
-      rel.className = 'text-[12.5px] text-accent font-medium';
+      rel.className = 'text-[12px] text-accent font-bold uppercase tracking-wider';
     } else {
       rel.textContent = fmtRelative(f.dueDate);
-      rel.className = 'text-[12.5px] text-ink-mute';
+      rel.className = 'text-[12px] text-ink-mute font-semibold';
     }
   }
 
@@ -87,17 +77,25 @@ function renderHistory() {
   const root = $('#fu-history');
   if (!root) return;
   const items = Array.isArray(state.fu.history) ? state.fu.history.slice().reverse() : [];
+  
   if (items.length === 0) {
-    root.innerHTML = `<div class="text-[12.5px] text-ink-faint py-2">No history yet.</div>`;
+    root.innerHTML = `<div class="text-[13px] text-ink-faint py-4 text-center">No history yet.</div>`;
     return;
   }
+  
   root.innerHTML = items.map((h) => `
-    <div class="flex gap-3 py-2.5 border-b border-hairline last:border-b-0">
-      <div class="w-[100px] shrink-0 text-[11.5px] text-ink-faint tnum pt-0.5">${esc(fmtHistoryTime(h.at))}</div>
+    <div class="flex gap-4 py-3 border-b border-hairline/50 last:border-b-0 relative">
+      <!-- Timeline dot -->
+      <div class="w-2 h-2 rounded-full bg-accent/40 mt-1.5 shrink-0 relative z-10"></div>
+      
       <div class="flex-1 min-w-0">
-        <div class="text-[13px] text-ink">${esc(h.byName || '')} <span class="text-ink-faint">·</span> ${esc(h.action || '')}</div>
-        ${h.note ? `<div class="text-[12.5px] text-ink-mute mt-0.5">${esc(h.note)}</div>` : ''}
-        ${h.to ? `<div class="text-[12.5px] text-ink-mute mt-0.5">Moved to ${esc(fmtDate(h.to))}</div>` : ''}
+        <div class="flex items-baseline justify-between gap-2">
+          <div class="text-[13.5px] font-semibold text-ink">${esc(h.byName || 'System')}</div>
+          <div class="text-[11px] text-ink-faint tnum shrink-0">${esc(fmtHistoryTime(h.at))}</div>
+        </div>
+        <div class="text-[13px] text-ink-mute capitalize mt-0.5">${esc(h.action || '')}</div>
+        ${h.note ? `<div class="text-[12.5px] text-ink bg-surface-hover p-2 rounded-lg mt-2 border border-hairline/50">${esc(h.note)}</div>` : ''}
+        ${h.to ? `<div class="text-[12.5px] font-medium text-accent mt-1">Moved to ${esc(fmtDate(h.to))}</div>` : ''}
       </div>
     </div>`).join('');
 }
@@ -108,21 +106,38 @@ function renderActions() {
   const f = state.fu;
 
   if (f.status !== 'pending') {
-    root.innerHTML = `<div class="text-[12.5px] text-ink-mute py-2">This follow-up is ${statusLabel(f.status).toLowerCase()}. No actions.</div>`;
+    root.innerHTML = `<div class="text-[13px] font-medium text-ink-mute py-4 text-center border border-hairline border-dashed rounded-xl bg-surface-hover/50">This follow-up is ${statusLabel(f.status).toLowerCase()}. No further actions available.</div>`;
     return;
   }
 
   root.innerHTML = `
-    <button type="button" data-action="call" class="w-full h-11 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium transition-colors">Call patient</button>
-    <button type="button" data-action="book" class="w-full h-11 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-medium transition-colors">Book appointment</button>
-    <div class="grid grid-cols-2 gap-2">
-      <button type="button" data-action="move" class="h-11 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-medium">Move date</button>
-      <button type="button" data-action="note" class="h-11 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-medium">Add note</button>
+    <!-- Primary Actions -->
+    <button type="button" data-action="call" class="w-full h-12 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+      <i class="bi bi-telephone-fill"></i> Call Patient
+    </button>
+    
+    <!-- Secondary Actions -->
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      <button type="button" data-action="book" class="h-11 rounded-xl bg-ink hover:bg-ink/90 text-white text-[13px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+        <i class="bi bi-calendar-plus"></i> Book
+      </button>
+      <button type="button" data-action="move" class="h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+        <i class="bi bi-arrow-right-circle"></i> Move Date
+      </button>
     </div>
-    <div class="grid grid-cols-2 gap-2">
-      <button type="button" data-action="done" class="h-11 rounded-lg bg-white hover:bg-surface-hover text-accent border border-hairline text-[13px] font-medium">Mark done</button>
-      <button type="button" data-action="cancel" class="h-11 rounded-lg bg-white hover:bg-surface-hover text-[#b91c1c] border border-hairline text-[13px] font-medium">Cancel</button>
-    </div>`;
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      <button type="button" data-action="note" class="h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+        <i class="bi bi-journal-text"></i> Note
+      </button>
+      <button type="button" data-action="done" class="h-11 rounded-xl bg-white hover:bg-emerald-50 text-emerald-600 border border-hairline hover:border-emerald-200 text-[13px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+        <i class="bi bi-check-circle"></i> Done
+      </button>
+    </div>
+    
+    <!-- Danger Action -->
+    <button type="button" data-action="cancel" class="w-full mt-3 h-11 rounded-xl bg-white hover:bg-red-50 text-red-500 border border-hairline hover:border-red-200 text-[13px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+      <i class="bi bi-x-circle"></i> Cancel Follow-up
+    </button>`;
 
   root.querySelectorAll('[data-action]').forEach((el) => {
     el.addEventListener('click', () => onAction(el.getAttribute('data-action')));
@@ -198,11 +213,17 @@ function doBook() {
   location.href = url;
 }
 
-async function doMove() {
+// Custom Prompt Modal for Move
+function showMoveDialog() {
   const current = state.fu.dueDate;
-  const newDate = prompt('New due date (YYYY-MM-DD):', current);
+  const newDate = window.prompt('New due date (YYYY-MM-DD):', current);
   if (!newDate || newDate === current) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) { showToast('Invalid date', 'error'); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) { showToast('Invalid date format', 'error'); return; }
+  performMove(newDate);
+}
+
+async function performMove(newDate) {
+  const current = state.fu.dueDate;
   state.saving = true;
   try {
     await move(state.fu.id, newDate, `Moved from ${current} to ${newDate}`);
@@ -210,10 +231,11 @@ async function doMove() {
     state.fu = await getFollowup(state.fu.id);
     render();
   } catch (err) {
-    console.error('[followup-view] move failed:', err);
     showToast('Could not move', 'error');
   } finally { state.saving = false; }
 }
+
+function doMove() { showMoveDialog(); }
 
 async function doNote() {
   const note = prompt('Add a note:');
@@ -225,7 +247,6 @@ async function doNote() {
     state.fu = await getFollowup(state.fu.id);
     render();
   } catch (err) {
-    console.error('[followup-view] note failed:', err);
     showToast('Could not add note', 'error');
   } finally { state.saving = false; }
 }
@@ -240,12 +261,11 @@ async function doResolve(status) {
     state.fu = await getFollowup(state.fu.id);
     render();
   } catch (err) {
-    console.error('[followup-view] resolve failed:', err);
     showToast('Could not update', 'error');
   } finally { state.saving = false; }
 }
 
 function renderError(msg) {
   const root = $('#fu-body');
-  if (root) root.innerHTML = `<div class="p-8 text-center text-[14px] text-ink-mute">${msg}</div>`;
+  if (root) root.innerHTML = `<div class="p-10 text-center text-[14px] font-medium text-ink-mute">${msg}</div>`;
 }

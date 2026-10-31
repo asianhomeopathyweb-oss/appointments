@@ -2,102 +2,131 @@
 import AppLayout from "../layouts/AppLayout.astro";
 ---
 <AppLayout title="Book">
-  <div class="min-h-[calc(100vh-52px)] md:py-10 md:px-6 bg-[#fafafb]">
-    <div class="w-full max-w-[560px] mx-auto bg-white md:rounded-2xl md:shadow-panel md:border md:border-hairline overflow-hidden">
+  <div class="h-[calc(100vh-52px)] flex flex-col md:flex-row overflow-hidden bg-surface">
 
-      <!-- Header -->
-      <div class="px-5 pt-5 pb-4 border-b border-hairline">
-        <div class="flex items-center justify-between mb-1">
-          <h1 class="text-[17px] font-semibold">Book appointment</h1>
-          <button id="book-cancel" type="button" aria-label="Close"
-            class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover">
-            <i class="bi bi-x-lg text-[14px]" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div class="text-[12.5px] text-ink-mute">
-          <span id="book-clinic">—</span>
-          <span class="mx-1">·</span>
-          <span id="book-date">—</span>
-        </div>
-      </div>
-
-      <!-- Patient -->
-      <div class="px-5 py-4 border-b border-hairline">
-        <label class="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Patient</label>
-        <input id="patient-search" type="text" autocomplete="off" placeholder="Search by name or phone"
-          class="w-full h-11 px-3 rounded-lg border border-hairline bg-white text-[14px]
-                 focus:outline-none focus:shadow-focus focus:border-accent" />
-        <div id="patient-results" class="mt-2 rounded-lg border border-hairline bg-white overflow-hidden max-h-[220px] overflow-y-auto"></div>
-        <button id="patient-create" type="button"
-          class="mt-2 h-8 px-3 rounded-lg text-[12.5px] text-ink-mute hover:bg-surface-hover inline-flex items-center gap-1.5">
-          <i class="bi bi-plus-lg text-[12px]" aria-hidden="true"></i>
-          Create new patient
+    <!-- LEFT PANEL (Desktop) / TOP PANEL (Mobile) -->
+    <div class="w-full md:w-[380px] shrink-0 bg-white border-b md:border-b-0 md:border-r border-hairline flex flex-col md:h-full overflow-y-auto">
+      
+      <!-- Header: Compact on mobile -->
+      <div class="flex items-center justify-between p-3 md:p-6 md:border-b border-hairline">
+        <div class="text-[16px] md:text-[18px] font-bold text-ink tracking-tight">New Booking</div>
+        <button id="book-cancel" type="button" class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute">
+          <i class="bi bi-x-lg text-[16px] md:text-[18px]"></i>
         </button>
       </div>
 
-      <!-- Slot -->
-      <div class="px-5 py-4 border-b border-hairline">
-        <label class="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Time</label>
-        <div id="book-slots" class="min-h-[40px]"></div>
-      </div>
-
-      <!-- Type + mode -->
-      <div class="px-5 py-4 border-b border-hairline grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Type</label>
-          <div class="flex gap-1.5">
-            <button type="button" data-type="followup"
-              class="h-8 px-3 rounded-lg text-[12.5px] border border-hairline hover:border-accent bg-accent-soft text-accent font-medium">
-              Follow-up
-            </button>
-            <button type="button" data-type="new"
-              class="h-8 px-3 rounded-lg text-[12.5px] border border-hairline hover:border-accent">
-              New
+      <!-- Search Area: Inline on mobile -->
+      <div class="p-3 md:p-6 md:border-b border-hairline flex flex-col gap-2 md:gap-3">
+        
+        <!-- If no patient selected: Search input -->
+        <div id="patient-search-wrap">
+          <label class="hidden md:block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Patient</label>
+          <div class="flex gap-2">
+            <input id="patient-search" type="text" autocomplete="off" placeholder="Search name or phone..."
+              class="flex-1 h-10 md:h-11 px-3 md:px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+            <button id="patient-create" type="button" class="h-10 md:h-11 w-10 md:w-11 shrink-0 rounded-xl bg-surface-hover text-ink flex items-center justify-center hover:bg-hairline transition-colors border border-hairline" title="Create new patient">
+              <i class="bi bi-person-plus text-[16px]"></i>
             </button>
           </div>
+          
+          <div id="patient-results" class="mt-2 rounded-xl border border-hairline bg-white overflow-hidden max-h-[180px] overflow-y-auto empty:hidden absolute z-20 w-[calc(100%-24px)] md:w-[330px] shadow-sm"></div>
         </div>
-        <div>
-          <label class="block text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-2">Mode</label>
-          <div class="flex gap-1.5">
-            <button type="button" data-mode="visit"
-              class="h-8 px-3 rounded-lg text-[12.5px] border border-hairline hover:border-accent bg-accent-soft text-accent font-medium">
-              Visit
-            </button>
-            <button type="button" data-mode="call"
-              class="h-8 px-3 rounded-lg text-[12.5px] border border-hairline hover:border-accent">
-              Call
-            </button>
+
+        <!-- If patient selected: Compact Chip -->
+        <div id="patient-selected-wrap" class="hidden">
+          <label class="hidden md:block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Selected Patient</label>
+          <div class="flex items-center justify-between bg-surface-hover p-2 md:p-3 rounded-xl border border-hairline">
+            <div class="flex flex-col">
+              <span id="summary-patient" class="text-[14px] md:text-[15px] font-bold text-ink">—</span>
+              <span id="summary-phone" class="text-[11px] md:text-[12px] text-ink-mute">—</span>
+              <span id="patient-last-visit" class="text-[10px] md:text-[11px] font-medium text-accent mt-0.5" hidden></span>
+            </div>
+            <button id="patient-clear" type="button" class="text-[11px] md:text-[12px] font-bold text-accent hover:underline px-2 py-1">Change</button>
+          </div>
+        </div>
+
+        <!-- Type & Mode: Combined compact row on mobile -->
+        <div class="flex gap-3 md:flex-col md:gap-4 mt-1 md:mt-2">
+          <div class="flex-1">
+            <label class="hidden md:block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5 md:mb-2">Type</label>
+            <div class="flex gap-1 md:gap-2">
+              <button type="button" data-type="followup" class="flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline hover:border-accent bg-ink text-white shadow-md transition-all">Follow-up</button>
+              <button type="button" data-type="new" class="flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline hover:border-accent bg-white text-ink transition-all">New</button>
+            </div>
+          </div>
+          <div class="flex-1">
+            <label class="hidden md:block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5 md:mb-2">Mode</label>
+            <div class="flex gap-1 md:gap-2">
+              <button type="button" data-mode="visit" class="flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline hover:border-accent bg-ink text-white shadow-md transition-all">Visit</button>
+              <button type="button" data-mode="call" class="flex-1 h-8 md:h-9 rounded-lg text-[11px] md:text-[12.5px] font-medium border border-hairline hover:border-accent bg-white text-ink transition-all">Call</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Desktop Summary & Save -->
+      <div class="hidden md:block mt-auto p-6 bg-surface-hover/30">
+        <div class="space-y-3 text-[13px] mb-6">
+          <div class="flex justify-between items-center"><span class="text-ink-mute">Date</span><span id="summary-date" class="text-ink font-semibold">—</span></div>
+          <div class="flex justify-between items-center"><span class="text-ink-mute">Time</span><span id="summary-slot" class="text-ink font-semibold">—</span></div>
+        </div>
+        <button id="book-save-desktop" type="button" disabled
+          class="w-full h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+          Book Appointment
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL (Date & Time) -->
+    <div class="flex-1 flex flex-col md:h-full bg-surface overflow-hidden">
+      
+      <!-- Date Strip -->
+      <div class="p-3 md:p-6 bg-white border-b border-hairline shrink-0">
+        <div class="flex items-center gap-1 md:gap-2 w-full max-w-[800px] mx-auto">
+          <button id="day-prev" class="w-8 h-8 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all">
+            <i class="bi bi-chevron-left text-[14px]"></i>
+          </button>
+          
+          <div id="booking-date-strip" class="flex-1 flex gap-1 md:gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1">
+            <!-- JS -->
+          </div>
+
+          <button id="day-next" class="w-8 h-8 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all">
+            <i class="bi bi-chevron-right text-[14px]"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Time Slots -->
+      <div class="flex-1 overflow-y-auto p-3 md:p-8">
+        <div class="max-w-[800px] mx-auto">
+          <div class="flex items-center justify-between mb-2 md:mb-4">
+            <div class="text-[13px] md:text-[14px] font-bold text-ink tracking-tight">Available Slots</div>
+            <div id="book-warn" hidden class="text-[11px] md:text-[11.5px] font-bold text-orange-600 bg-orange-50 px-2 md:px-3 py-1 rounded-full border border-orange-200">
+              Slot has existing bookings
+            </div>
+          </div>
+          <div id="book-slots" class="min-h-[200px]">
+             <!-- JS -->
           </div>
         </div>
       </div>
 
-      <!-- Warning -->
-      <div id="book-warn" hidden
-        class="px-5 py-3 bg-[#fff7e6] border-b border-hairline text-[12.5px] text-[#92400e] flex items-start gap-2">
-        <i class="bi bi-exclamation-triangle-fill text-[13px] mt-0.5" aria-hidden="true"></i>
-        <span></span>
-      </div>
-
-      <!-- Summary -->
-      <div class="px-5 py-4 bg-[#fafafb]">
-        <div class="space-y-1.5 text-[12.5px] text-ink-mute">
-          <div class="flex justify-between"><span>Patient</span><span id="summary-patient" class="text-ink font-medium truncate ml-3">—</span></div>
-          <div class="flex justify-between"><span>Time</span><span id="summary-slot" class="text-ink font-medium">—</span></div>
-          <div class="flex justify-between"><span>Type</span><span id="summary-type" class="text-ink font-medium">—</span></div>
-          <div class="flex justify-between"><span>Mode</span><span id="summary-mode" class="text-ink font-medium">—</span></div>
+      <!-- Mobile Summary & Save (Sticky at bottom) -->
+      <div class="md:hidden p-3 bg-white border-t border-hairline shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-30">
+        <div class="flex items-center justify-between mb-2 px-1">
+          <div class="text-[11px] text-ink-mute truncate max-w-[50%]"><span class="font-bold text-ink">Patient:</span> <span id="mobile-summary-patient">—</span></div>
+          <div class="text-[11px] text-ink-mute"><span class="font-bold text-ink">Time:</span> <span id="mobile-summary-slot">—</span></div>
         </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="px-5 py-4 border-t border-hairline">
         <button id="book-save" type="button" disabled
-          class="w-full h-11 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium
-                 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-          Book appointment
+          class="w-full h-10 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+          Book Appointment
         </button>
       </div>
 
     </div>
+
   </div>
 
   <script>

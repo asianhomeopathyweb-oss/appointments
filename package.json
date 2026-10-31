@@ -6,9 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
-    "tw": "tailwindcss -i ./assets/input.css -o ./public/assets/style.css --watch",
-    "tw:build": "tailwindcss -i ./css-src/input.css -o ./public/assets/style.css --minify"
+    "preview": "astro preview"
   },
   "dependencies": {
     "astro": "^4.15.0"

@@ -2,56 +2,113 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 ---
 <AppLayout title="Reports">
-  <div class="p-6 md:p-8 max-w-[860px]">
-    
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col min-h-full bg-surface">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
       <div>
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Dashboard</div>
-        <div class="text-[22px] font-semibold">Reports</div>
+        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Dashboard</div>
+        <div class="text-[24px] font-bold text-ink tracking-tight">Reports</div>
       </div>
-      <select id="report-range" class="h-10 px-3 rounded-lg border border-hairline text-[13px] bg-white outline-none focus:border-accent">
-        <option value="7">Last 7 days</option>
-        <option value="30" selected>Last 30 days</option>
-        <option value="90">Last 90 days</option>
-        <option value="365">Last 1 year</option>
-      </select>
-    </div>
-
-    <!-- New Patients Section -->
-    <div class="mb-10">
-      <div class="text-[15px] font-medium mb-4">New Patients</div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <div class="p-4 bg-white border border-hairline rounded-xl">
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Total New</div>
-          <div id="rp-np-total" class="text-[24px] font-semibold tnum">—</div>
-        </div>
-      </div>
-      <div class="bg-white border border-hairline rounded-xl overflow-hidden">
-        <div class="px-5 py-3 border-b border-hairline bg-surface-hover/50 text-[12px] font-medium text-ink-mute">By Referral Source</div>
-        <div id="rp-referrals" class="divide-y divide-hairline"></div>
+      
+      <div class="flex items-center gap-3">
+        <div class="text-[12px] font-medium text-ink-mute">Date Range</div>
+        <select id="report-range" class="h-10 px-4 rounded-xl border border-hairline text-[13px] font-bold bg-white outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all shadow-sm">
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last 1 year</option>
+        </select>
       </div>
     </div>
 
-    <!-- Follow-ups Section -->
-    <div>
-      <div class="text-[15px] font-medium mb-4">Follow-ups</div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="p-4 bg-white border border-hairline rounded-xl">
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Total</div>
-          <div id="rp-fu-total" class="text-[24px] font-semibold tnum">—</div>
+    <!-- Split Panels -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+      
+      <!-- LEFT: New Patients & Referrals -->
+      <div class="lg:col-span-5 flex flex-col gap-6">
+        
+        <!-- Hero Stat -->
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-6 flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">New Patients</div>
+            <div id="rp-np-total" class="text-[42px] font-extrabold text-ink tracking-tight tnum leading-none">—</div>
+          </div>
+          <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 grid place-items-center">
+            <i class="bi bi-person-plus-fill text-[24px]"></i>
+          </div>
         </div>
-        <div class="p-4 bg-white border border-hairline rounded-xl">
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Pending</div>
-          <div id="rp-fu-pending" class="text-[24px] font-semibold tnum text-accent">—</div>
+
+        <!-- Full Referral Breakdown -->
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline flex flex-col flex-1">
+          <div class="px-6 py-4 border-b border-hairline bg-surface-hover/30 rounded-t-2xl">
+            <div class="text-[12px] font-bold tracking-widest text-ink-mute uppercase">All Referral Sources</div>
+          </div>
+          <div id="rp-referrals" class="divide-y divide-hairline/50 flex-1 overflow-y-auto">
+            <!-- Filled by JS -->
+          </div>
         </div>
-        <div class="p-4 bg-white border border-hairline rounded-xl">
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Overdue</div>
-          <div id="rp-fu-overdue" class="text-[24px] font-semibold tnum text-red-600">—</div>
+
+      </div>
+
+      <!-- RIGHT: Follow-up Stats & Top Referrers -->
+      <div class="lg:col-span-7 flex flex-col gap-6">
+        
+        <div class="text-[12px] font-bold tracking-widest text-ink-faint uppercase mt-1">Follow-up Analytics</div>
+        
+        <!-- Follow-up Stats Grid -->
+        <div class="grid grid-cols-2 gap-4">
+          
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-4">
+              <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase">Total</div>
+              <i class="bi bi-list-check text-[16px] text-ink-faint"></i>
+            </div>
+            <div id="rp-fu-total" class="text-[32px] font-extrabold text-ink tracking-tight tnum leading-none">—</div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute inset-0 bg-accent-soft/30"></div>
+            <div class="relative z-10">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-[11px] font-bold tracking-widest text-accent uppercase">Pending</div>
+                <i class="bi bi-hourglass-split text-[16px] text-accent"></i>
+              </div>
+              <div id="rp-fu-pending" class="text-[32px] font-extrabold text-accent tracking-tight tnum leading-none">—</div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute inset-0 bg-red-50/50"></div>
+            <div class="relative z-10">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-[11px] font-bold tracking-widest text-red-500 uppercase">Overdue</div>
+                <i class="bi bi-exclamation-triangle-fill text-[16px] text-red-500"></i>
+              </div>
+              <div id="rp-fu-overdue" class="text-[32px] font-extrabold text-red-600 tracking-tight tnum leading-none">—</div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-4">
+              <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase">Completion</div>
+              <i class="bi bi-check2-circle text-[16px] text-emerald-500"></i>
+            </div>
+            <div id="rp-fu-rate" class="text-[32px] font-extrabold text-emerald-600 tracking-tight tnum leading-none">—</div>
+          </div>
+
         </div>
-        <div class="p-4 bg-white border border-hairline rounded-xl">
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint mb-1">Completion Rate</div>
-          <div id="rp-fu-rate" class="text-[24px] font-semibold tnum">—</div>
+
+        <!-- Top Referrers Leaderboard -->
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline flex flex-col flex-1">
+          <div class="px-6 py-4 border-b border-hairline bg-surface-hover/30 rounded-t-2xl">
+            <div class="text-[12px] font-bold tracking-widest text-ink-mute uppercase">Top Referrers</div>
+          </div>
+          <div id="rp-top-referrers" class="divide-y divide-hairline/50 flex-1 overflow-y-auto">
+            <!-- Filled by JS -->
+          </div>
         </div>
+
       </div>
     </div>
 
@@ -74,31 +131,47 @@ import AppLayout from '../../layouts/AppLayout.astro';
       if (!isAdmin()) { location.replace('/day'); return; }
 
       wireDateRange(async (start, end) => {
-        // Set loading states
+        // Loading states
         $('#rp-np-total').textContent = '...';
         $('#rp-fu-total').textContent = '...';
         $('#rp-fu-pending').textContent = '...';
         $('#rp-fu-overdue').textContent = '...';
         $('#rp-fu-rate').textContent = '...';
-        $('#rp-referrals').innerHTML = '<div class="p-4 text-center text-ink-mute text-[12.5px]">Loading...</div>';
+        $('#rp-referrals').innerHTML = '<div class="p-8 text-center text-ink-faint text-[13px] font-medium animate-pulse">Loading...</div>';
+        $('#rp-top-referrers').innerHTML = '<div class="p-8 text-center text-ink-faint text-[13px] font-medium animate-pulse">Loading...</div>';
 
         try {
-          // Fetch both concurrently for speed
           const [npData, fuData] = await Promise.all([
             fetchNewPatients(start, end),
             fetchFollowupStats(start, end)
           ]);
 
-          // Render New Patients
+          // Render New Patients Total
           $('#rp-np-total').textContent = npData.total;
+          
           const refs = Object.entries(npData.referrals).sort((a, b) => b[1] - a[1]);
+          const topRefs = refs.slice(0, 3);
+
           if (refs.length === 0) {
-            $('#rp-referrals').innerHTML = '<div class="p-4 text-center text-ink-mute text-[12.5px]">No new patients in this period.</div>';
+            $('#rp-referrals').innerHTML = '<div class="p-8 text-center text-ink-faint text-[13px]">No new patients in this period.</div>';
+            $('#rp-top-referrers').innerHTML = '<div class="p-8 text-center text-ink-faint text-[13px]">No data available.</div>';
           } else {
+            // Fill full referral list
             $('#rp-referrals').innerHTML = refs.map(([name, count]) => `
-              <div class="flex items-center justify-between px-5 py-2.5">
-                <div class="text-[13px] text-ink">${esc(name)}</div>
-                <div class="text-[13px] font-medium tnum">${count}</div>
+              <div class="flex items-center justify-between px-6 py-4 hover:bg-surface-hover transition-colors">
+                <div class="text-[14px] font-medium text-ink">${esc(name)}</div>
+                <div class="text-[13px] font-bold text-ink bg-surface-hover px-3 py-1 rounded-full tnum">${count}</div>
+              </div>
+            `).join('');
+
+            // Fill top 3 leaderboard (with medal colors)
+            $('#rp-top-referrers').innerHTML = topRefs.map(([name, count], index) => `
+              <div class="flex items-center gap-4 px-6 py-4">
+                <div class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[12px] ${index === 0 ? 'bg-amber-100 text-amber-600' : index === 1 ? 'bg-gray-100 text-gray-500' : 'bg-orange-50 text-orange-400'}">
+                  ${index + 1}
+                </div>
+                <div class="flex-1 text-[14px] font-semibold text-ink truncate">${esc(name)}</div>
+                <div class="text-[13px] font-bold text-ink bg-surface-hover px-2 py-0.5 rounded tnum">${count}</div>
               </div>
             `).join('');
           }
@@ -110,8 +183,8 @@ import AppLayout from '../../layouts/AppLayout.astro';
           $('#rp-fu-rate').textContent = fuData.completionRate + '%';
 
         } catch (err) {
-          console.error('Report load failed:', err);
-          $('#rp-referrals').innerHTML = '<div class="p-4 text-center text-red-500 text-[12.5px]">Failed to load.</div>';
+          $('#rp-referrals').innerHTML = '<div class="p-8 text-center text-red-500 text-[13px] font-medium">Failed to load data.</div>';
+          $('#rp-top-referrers').innerHTML = '<div class="p-8 text-center text-red-500 text-[13px] font-medium">Failed to load.</div>';
         }
       });
     })();

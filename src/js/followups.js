@@ -147,15 +147,19 @@ export async function resolve(id, status, note) {
   try { await writeAudit('followup_resolved', id); } catch {}
 }
 
-/** Mark a follow-up superseded (replaced by a newer one). */
-export async function supersede(id, note) {
+/**
+ * Mark a follow-up superseded (replaced by a newer one).
+ * Accepts an optional replacedByDate to log exactly where it was moved to.
+ */
+export async function supersede(id, note, replacedByDate) {
   const m = me();
   const entry = {
     at: new Date().toISOString(),
     by: m.uid,
     byName: m.name,
     action: 'superseded',
-    note: note || ''
+    note: note || '',
+    to: replacedByDate || undefined
   };
   await updateDoc(doc(db, 'followUps', id), {
     status: 'superseded',

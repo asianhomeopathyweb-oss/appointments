@@ -20,13 +20,9 @@ import AppLayout from '../layouts/AppLayout.astro';
     <!-- Main Content -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
       
-      <!-- LEFT: Details (Compact on mobile) -->
+      <!-- LEFT: Details -->
       <div class="lg:col-span-5 flex flex-col gap-4 md:gap-6">
-        
-        <!-- When & Details Combined Card -->
         <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 md:p-6">
-          
-          <!-- When -->
           <div class="mb-5 pb-5 border-b border-hairline">
             <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">When</div>
             <div class="flex items-baseline justify-between gap-2">
@@ -34,8 +30,6 @@ import AppLayout from '../layouts/AppLayout.astro';
               <div id="appt-slot" class="text-[14px] md:text-[15px] font-bold text-accent tnum bg-accent-soft px-2.5 py-1 rounded-lg">—</div>
             </div>
           </div>
-
-          <!-- Details -->
           <div class="grid grid-cols-3 gap-3">
             <div>
               <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-1">Type</div>
@@ -50,35 +44,93 @@ import AppLayout from '../layouts/AppLayout.astro';
               <div id="appt-status" class="text-[11px] font-bold uppercase tracking-wider text-ink-mute truncate mt-0.5">—</div>
             </div>
           </div>
-
         </div>
-
       </div>
 
       <!-- RIGHT: Actions -->
       <div class="lg:col-span-7 flex flex-col">
         <div id="appt-body" class="bg-white rounded-2xl shadow-sm border border-hairline flex flex-col flex-1 overflow-hidden">
-          
-          <div class="px-5 md:px-6 py-3 md:py-4 border-b border-hairline bg-surface-hover/30">
+          <div class="px-5 md:px-6 py-3 md:py-4 border-b border-hairline bg-surface-hover/30 shrink-0">
             <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase">Actions</div>
           </div>
-
-          <!-- Dynamic actions -->
-          <div id="appt-actions" class="p-4 md:p-6 flex flex-col gap-2.5"></div>
-
-          <!-- Reason picker -->
-          <div id="appt-reason" hidden class="p-5 md:p-6 border-t border-hairline bg-surface-hover/10"></div>
-
-          <!-- Follow-up picker -->
-          <div id="appt-followup" hidden class="p-5 md:p-6 border-t border-hairline bg-surface-hover/10"></div>
-
-          <!-- Move Time picker -->
-          <div id="appt-move" hidden class="p-5 md:p-6 border-t border-hairline bg-surface-hover/10"></div>
-
+          <div id="appt-actions" class="p-4 md:p-6 flex flex-col gap-2.5 overflow-y-auto"></div>
         </div>
       </div>
 
     </div>
+  </div>
+
+  <!-- ACTION MODAL (Follow-up / Reschedule / Cancel) -->
+  <div id="appt-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+
+  <div id="appt-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+           md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
+
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0 flex items-center justify-between">
+      <div id="appt-modal-title" class="text-[16px] font-bold text-ink">Action</div>
+      <button id="appt-modal-close" type="button" class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute shrink-0">
+        <i class="bi bi-x-lg text-[16px]"></i>
+      </button>
+    </div>
+
+    <!-- Follow-up Picker Panel -->
+    <div id="panel-followup" class="hidden p-5">
+      <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Schedule next follow-up</div>
+      <div class="mb-3">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Pick a date</label>
+        <input type="date" id="fu-date" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" />
+      </div>
+      <div class="mb-4">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Or pick an interval</label>
+        <select id="fu-interval" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent">
+          <option value="">— Select interval —</option>
+          <option value="7">1 week</option>
+          <option value="15">15 days</option>
+          <option value="30">1 month</option>
+          <option value="60">2 months</option>
+          <option value="90">3 months</option>
+          <option value="180">6 months</option>
+          <option value="365">12 months</option>
+        </select>
+      </div>
+      <div id="fu-pending-note" class="hidden mb-3 p-3 rounded-lg bg-orange-50 text-[12px] text-orange-700 border border-orange-200"></div>
+      <div class="flex gap-3">
+        <button id="fu-back" type="button" class="flex-1 h-10 rounded-xl bg-white text-ink border border-hairline text-[13px] font-semibold">Back</button>
+        <button id="fu-save" type="button" class="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold">Mark Complete</button>
+      </div>
+    </div>
+
+    <!-- Reschedule Panel -->
+    <div id="panel-reschedule" class="hidden p-5">
+      <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Reschedule Appointment</div>
+      <div class="mb-3">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">New Date</label>
+        <input type="date" id="res-date" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" />
+      </div>
+      <div class="mb-3">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">New Time Slot</label>
+        <select id="res-slot" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent"></select>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button id="res-back" type="button" class="flex-1 h-10 rounded-xl bg-white text-ink border border-hairline text-[13px] font-semibold">Back</button>
+        <button id="res-save" type="button" class="flex-1 h-10 rounded-xl bg-orange-400 hover:bg-orange-500 text-white text-[13px] font-bold">Move</button>
+      </div>
+    </div>
+
+    <!-- Cancel Panel -->
+    <div id="panel-cancel" class="hidden p-5">
+      <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Why cancel?</div>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <button type="button" data-reason="patient" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">Patient cancelled</button>
+        <button type="button" data-reason="no_show" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">No show</button>
+        <button type="button" data-reason="clinic" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">Clinic cancelled</button>
+        <button type="button" data-reason="rescheduled" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">Rescheduled</button>
+      </div>
+      <button id="cancel-back" type="button" class="text-[12.5px] font-semibold text-ink-mute hover:text-ink transition-colors">← Back to actions</button>
+    </div>
+
   </div>
 
   <script>

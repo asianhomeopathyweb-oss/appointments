@@ -8,12 +8,13 @@ import { me } from './lib/auth-guards.js';
 import { getActiveClinicId } from './lib/clinic-context.js';
 import { get as getAppointment, updateStatus, reschedule as rescheduleAppt } from './appointments.js';
 import { createFromVisit, findPendingForPatient, supersede } from './followups.js';
-import { generateSlots, isDayOpen } from './slot-grid.js';
-import { todayISO, intervalToDate, fmtDate, fmtSlot } from './date-utils.js';
+import { generateSlots } from './slot-grid.js';
+import { fmtDate, fmtSlot, intervalToDate } from './date-utils.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from './lib/firebase-init.js';
 import { showToast } from './lib/toast.js';
 import { checkSlotOccupancy, invalidateOccupancy } from './booking-policy.js';
+import { esc } from './lib/format.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -21,21 +22,9 @@ const state = {
   appointment: null,
   clinicId: null,
   schedule: null,
-  followupInterval: null,
-  followupCustomDate: null,
   pendingFollowup: null,
   saving: false
 };
-
-const INTERVALS = [
-  { label: '1 week',  days: 7 },
-  { label: '15 days', days: 15 },
-  { label: '1 month', days: 30 },
-  { label: '2 months', days: 60 },
-  { label: '3 months', days: 90 },
-  { label: '6 months', days: 180 },
-  { label: '12 months', days: 365 }
-];
 
 // ---------- entry ----------
 export async function startStatusFlow() {
@@ -114,88 +103,6 @@ function renderBody() {
   actionsRoot.querySelectorAll('[data-action]').forEach((el) => {
     el.addEventListener('click', () => onAction(el.getAttribute('data-action')));
   });
-
-  // Reason picker (hidden until cancel)
-  const reasonRoot = $('#appt-reason');
-  if (reasonRoot) {
-    reasonRoot.hidden = true;
-    reasonRoot.innerHTML = `
-      <div class="mb-3 text-[11px] font-bold uppercase tracking-widest text-ink-mute">Cancellation reason</div>
-      <div class="grid grid-cols-2 gap-2 mb-4">
-        <button type="button" data-reason="patient" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">Patient cancelled</button>
-        <button type="button" data-reason="no_show" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">No show</button>
-        <button type="button" data-reason="clinic" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">Clinic cancelled</button>
-        <button type="button" data-reason="rescheduled" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">Rescheduled</button>
-      </div>
-      <button id="reason-cancel" type="button" class="text-[12.5px] font-semibold text-ink-mute hover:text-ink transition-colors">Back to actions</button>`;
-    reasonRoot.querySelectorAll('[data-reason]').forEach((el) => {
-      el.addEventListener('click', () => doCancel(el.getAttribute('data-reason')));
-    });
-    const back = reasonRoot.querySelector('#reason-cancel');
-    if (back) back.addEventListener('click', () => {
-      reasonRoot.hidden = true;
-      actionsRoot.hidden = false;
-    });
-  }
-
-  // Follow-up picker (hidden until mark seen)
-  const fuRoot = $('#appt-followup');
-  if (fuRoot) {
-    fuRoot.hidden = true;
-    const chips = INTERVALS.map((i) =>
-      `<button type="button" data-interval="${i.days}" class="h-9 px-3 rounded-lg text-[12.5px] font-semibold border border-hairline hover:border-accent hover:bg-accent-soft transition-colors">${i.label}</button>`
-    ).join('');
-    fuRoot.innerHTML = `
-      <div class="mb-3 text-[11px] font-bold uppercase tracking-widest text-ink-mute">Schedule next follow-up</div>
-      <div class="flex flex-wrap gap-2 mb-4">
-        ${chips}
-        <button type="button" data-interval="none" class="h-9 px-3 rounded-lg text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">No follow-up</button>
-      </div>
-      <div id="fu-pending-note" hidden class="mb-4 p-3 rounded-xl bg-orange-50 text-[12.5px] font-medium text-orange-700 border border-orange-200"></div>
-      <button id="fu-cancel" type="button" class="text-[12.5px] font-semibold text-ink-mute hover:text-ink transition-colors">Back to actions</button>`;
-    fuRoot.querySelectorAll('[data-interval]').forEach((el) => {
-      el.addEventListener('click', () => onIntervalPick(el.getAttribute('data-interval')));
-    });
-    const back = fuRoot.querySelector('#fu-cancel');
-    if (back) back.addEventListener('click', () => {
-      fuRoot.hidden = true;
-      actionsRoot.hidden = false;
-    });
-  }
-
-  // Move Time picker (hidden until Move clicked)
-  const moveRoot = $('#appt-move');
-  if (moveRoot) {
-    moveRoot.hidden = true;
-    moveRoot.innerHTML = `
-      <div class="mb-3 text-[11px] font-bold uppercase tracking-widest text-ink-mute">Reschedule Appointment</div>
-      <div class="mb-3">
-        <label class="block text-[12px] font-medium text-ink-mute mb-1">New Date</label>
-        <input type="date" id="appt-move-date" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" />
-      </div>
-      <div class="mb-4">
-        <label class="block text-[12px] font-medium text-ink-mute mb-1">New Time Slot</label>
-        <select id="appt-move-slot" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent"></select>
-      </div>
-      <div class="flex gap-3">
-        <button id="move-back" type="button" class="flex-1 h-10 rounded-xl bg-white text-ink border border-hairline text-[13px] font-semibold">Back</button>
-        <button id="move-save" type="button" class="flex-1 h-10 rounded-xl bg-orange-400 hover:bg-orange-500 text-white text-[13px] font-bold">Move</button>
-      </div>`;
-      
-    moveRoot.querySelector('#move-back').addEventListener('click', () => {
-      moveRoot.hidden = true;
-      actionsRoot.hidden = false;
-    });
-    moveRoot.querySelector('#move-save').addEventListener('click', () => doMove());
-    
-    const dateInput = moveRoot.querySelector('#appt-move-date');
-    if (dateInput) {
-      dateInput.addEventListener('click', () => {
-        try { dateInput.showPicker && dateInput.showPicker(); } catch {}
-      });
-      dateInput.addEventListener('change', () => populateMoveSlots());
-    }
-  }
 }
 
 function button(label, action, kind, icon) {
@@ -215,74 +122,166 @@ function setText(sel, value) {
 
 // ---------- events ----------
 function wireEvents() {
-  const close = $('#appt-close');
-  if (close) close.addEventListener('click', () => history.back());
+  $('#appt-close')?.addEventListener('click', () => history.back());
+  $('#appt-backdrop')?.addEventListener('click', closeModal);
+  $('#appt-modal-close')?.addEventListener('click', closeModal);
+  
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#appt-modal').classList.contains('hidden')) closeModal();
+  });
+
+  ['#fu-date', '#res-date'].forEach(sel => {
+    const el = $(sel);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      try { el.showPicker && el.showPicker(); } catch {}
+    });
+  });
+
+  $('#fu-back')?.addEventListener('click', () => {
+    $('#panel-followup').classList.add('hidden');
+    $('#appt-actions').classList.remove('hidden');
+  });
+
+  $('#fu-save')?.addEventListener('click', doFollowupSave);
+
+  $('#res-back')?.addEventListener('click', () => {
+    $('#panel-reschedule').classList.add('hidden');
+    $('#appt-actions').classList.remove('hidden');
+  });
+
+  $('#res-date')?.addEventListener('change', populateRescheduleSlots);
+  $('#res-save')?.addEventListener('click', doRescheduleSave);
+
+  document.querySelectorAll('#panel-cancel [data-reason]').forEach(el => {
+    el.addEventListener('click', () => doCancel(el.getAttribute('data-reason')));
+  });
+
+  $('#cancel-back')?.addEventListener('click', () => {
+    $('#panel-cancel').classList.add('hidden');
+    $('#appt-actions').classList.remove('hidden');
+  });
 }
 
 async function onAction(action) {
   if (action === 'seen') { showFollowupPicker(); return; }
-  if (action === 'cancel') { showCancelPicker(); return; }
   if (action === 'move') { showMovePicker(); return; }
+  if (action === 'cancel') { showCancelPicker(); return; }
   if (action === 'reopen') { await doReopen(); return; }
 }
 
-function showFollowupPicker() {
-  const fu = $('#appt-followup');
-  const reason = $('#appt-reason');
-  const move = $('#appt-move');
-  const actions = $('#appt-actions');
-  if (reason) reason.hidden = true;
-  if (move) move.hidden = true;
-  if (actions) actions.hidden = true;
-  if (fu) {
-    fu.hidden = false;
-    const note = $('#fu-pending-note');
-    if (note) {
-      if (state.pendingFollowup) {
-        note.hidden = false;
-        note.innerHTML = `Patient already has a pending follow-up due <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>. Choosing an interval will <strong>replace</strong> it.`;
-      } else {
-        note.hidden = true;
-      }
-    }
-  }
+// ---------- Modal Control ----------
+function openModal(title) {
+  $('#appt-modal-title').textContent = title;
+  $('#panel-followup').classList.add('hidden');
+  $('#panel-reschedule').classList.add('hidden');
+  $('#panel-cancel').classList.add('hidden');
+  
+  $('#appt-actions').classList.add('hidden');
+
+  $('#appt-backdrop').classList.remove('hidden');
+  $('#appt-modal').classList.remove('hidden');
+  $('#appt-modal').classList.add('flex');
 }
 
-function showCancelPicker() {
-  const fu = $('#appt-followup');
-  const reason = $('#appt-reason');
-  const move = $('#appt-move');
-  const actions = $('#appt-actions');
-  if (fu) fu.hidden = true;
-  if (move) move.hidden = true;
-  if (actions) actions.hidden = true;
-  if (reason) reason.hidden = false;
+function closeModal() {
+  $('#appt-backdrop').classList.add('hidden');
+  $('#appt-modal').classList.add('hidden');
+  $('#appt-modal').classList.remove('flex');
+  $('#appt-actions').classList.remove('hidden');
+}
+
+// ---------- Pickers ----------
+function showFollowupPicker() {
+  openModal('Mark Seen');
+  $('#panel-followup').classList.remove('hidden');
+  
+  $('#fu-date').value = '';
+  $('#fu-interval').value = '';
+  
+  const note = $('#fu-pending-note');
+  if (state.pendingFollowup && note) {
+    note.classList.remove('hidden');
+    note.className = 'bg-blue-50 text-[12px] text-blue-700 border border-blue-200 p-3 rounded-lg mb-4';
+    note.innerHTML = `Patient has an existing follow-up scheduled for <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>.`;
+  } else if (note) {
+    note.classList.add('hidden');
+  }
+
+  setTimeout(() => {
+    try { $('#fu-date').showPicker && $('#fu-date').showPicker(); } catch {}
+  }, 150);
 }
 
 function showMovePicker() {
-  const fu = $('#appt-followup');
-  const reason = $('#appt-reason');
-  const move = $('#appt-move');
-  const actions = $('#appt-actions');
-  if (fu) fu.hidden = true;
-  if (reason) reason.hidden = true;
-  if (actions) actions.hidden = true;
-  if (move) move.hidden = false;
-  
-  const dateInput = $('#appt-move-date');
-  if (dateInput) dateInput.value = state.appointment.date;
-  populateMoveSlots();
+  openModal('Reschedule Appointment');
+  $('#panel-reschedule').classList.remove('hidden');
+  $('#res-date').value = state.appointment.date;
+  populateRescheduleSlots();
 }
 
-async function populateMoveSlots() {
-  const dateInput = $('#appt-move-date');
-  const slotSelect = $('#appt-move-slot');
-  if (!dateInput || !slotSelect) return;
-  if (!state.schedule) { slotSelect.innerHTML = `<option>No schedule</option>`; return; }
+function showCancelPicker() {
+  openModal('Cancel Appointment');
+  $('#panel-cancel').classList.remove('hidden');
+}
 
-  const pickedDate = dateInput.value || state.appointment.date;
+// ---------- Actions ----------
+async function doFollowupSave() {
+  if (state.saving) return;
+  const pickedDate = $('#fu-date').value;
+  const pickedInterval = $('#fu-interval').value;
+  
+  let dueDate = null;
+  let days = null;
+
+  if (pickedDate) {
+    dueDate = pickedDate;
+  } else if (pickedInterval) {
+    days = Number(pickedInterval);
+    dueDate = intervalToDate(state.appointment.date, days);
+  }
+
+  if (!dueDate && state.pendingFollowup) {
+    const proceed = confirm(
+      `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
+    );
+    if (!proceed) return;
+  }
+
+  state.saving = true;
+  try {
+    await updateStatus(state.appointment.id, 'seen', '');
+    
+    if (dueDate) {
+      if (state.pendingFollowup) {
+        await supersede(
+          state.pendingFollowup.id, 
+          `Visited early on ${state.appointment.date}`, 
+          dueDate
+        );
+      }
+      await createFromVisit(state.appointment, days, dueDate);
+    }
+    
+    showToast('Marked seen');
+    setTimeout(() => history.back(), 400);
+  } catch (err) {
+    console.error(err);
+    showToast('Could not complete', 'error');
+    state.saving = false;
+  }
+}
+
+async function populateRescheduleSlots() {
+  const appt = state.appointment;
+  if (!appt || !state.schedule) return;
+  
+  const dateInput = $('#res-date');
+  const slotSelect = $('#res-slot');
+  if (!dateInput || !slotSelect) return;
+
+  const pickedDate = dateInput.value || appt.date;
   const slots = generateSlots(state.schedule);
-  if (slots.length === 0) { slotSelect.innerHTML = `<option>Clinic closed</option>`; return; }
 
   slotSelect.innerHTML = `<option value="">Loading slots…</option>`;
 
@@ -292,29 +291,28 @@ async function populateMoveSlots() {
         clinicId: state.clinicId,
         dateISO: pickedDate,
         slot,
-        excludeApptId: state.appointment.id
+        excludeApptId: appt.id
       }).catch(() => ({ count: 0, conflict: null }))
     )
   );
 
   slotSelect.innerHTML = slots.map((s, i) => {
     const occ = occupancies[i];
-    const isOriginal = s === state.appointment.slot && pickedDate === state.appointment.date;
+    const isOriginal = s === appt.slot && pickedDate === appt.date;
     const label = occ.count > 0
       ? `${fmtSlot(s)} — Booked (${occ.conflict?.patientName || 'another'})`
       : `${fmtSlot(s)} — Free`;
-    return `<option value="${s}" ${isOriginal ? 'selected' : ''}>${label}</option>`;
+    return `<option value="${s}" ${isOriginal ? 'selected' : ''}>${esc(label)}</option>`;
   }).join('');
 }
 
-async function doMove() {
+async function doRescheduleSave() {
   if (state.saving) return;
-  const newDate = $('#appt-move-date').value;
-  const newSlot = $('#appt-move-slot').value;
+  const newDate = $('#res-date').value;
+  const newSlot = $('#res-slot').value;
   if (!newDate || !newSlot) { showToast('Pick date and slot', 'error'); return; }
 
   state.saving = true;
-
   try {
     const occ = await checkSlotOccupancy({
       clinicId: state.clinicId,
@@ -328,10 +326,7 @@ async function doMove() {
       const proceed = confirm(
         `This slot already has ${occ.count} booking${occ.count > 1 ? 's' : ''} (${who}). Move anyway?`
       );
-      if (!proceed) {
-        state.saving = false;
-        return;
-      }
+      if (!proceed) { state.saving = false; return; }
     }
 
     await rescheduleAppt(state.appointment.id, newDate, newSlot);
@@ -340,38 +335,8 @@ async function doMove() {
     showToast('Appointment moved');
     setTimeout(() => history.back(), 400);
   } catch (err) {
-    console.error('[status-flow] move failed:', err);
+    console.error(err);
     showToast('Could not move', 'error');
-    state.saving = false;
-  }
-}
-
-async function onIntervalPick(value) {
-  if (value === 'none') { await markSeen(null, null); return; }
-  if (value === 'custom') { return; }
-  const days = Number(value);
-  const today = state.appointment.date;
-  const dueDate = intervalToDate(today, days);
-  await markSeen(days, dueDate);
-}
-
-async function markSeen(intervalDays, dueDate) {
-  if (state.saving) return;
-  state.saving = true;
-  const a = state.appointment;
-  try {
-    await updateStatus(a.id, 'seen', '');
-    if (intervalDays !== null) {
-      if (state.pendingFollowup) {
-        await supersede(state.pendingFollowup.id, 'Replaced by new follow-up from visit on ' + a.date);
-      }
-      await createFromVisit(a, intervalDays, dueDate);
-    }
-    showToast('Marked seen');
-    setTimeout(() => history.back(), 400);
-  } catch (err) {
-    console.error('[status-flow] markSeen failed:', err);
-    showToast('Could not update', 'error');
     state.saving = false;
   }
 }
@@ -381,6 +346,10 @@ async function doCancel(reason) {
   state.saving = true;
   try {
     await updateStatus(state.appointment.id, 'cancelled', reason);
+    
+    // Clear the cache so the slot immediately reopens for booking
+    invalidateOccupancy(state.clinicId, state.appointment.date);
+    
     showToast('Appointment cancelled');
     setTimeout(() => history.back(), 400);
   } catch (err) {
@@ -394,6 +363,7 @@ async function doReopen() {
   state.saving = true;
   try {
     await updateStatus(state.appointment.id, 'booked', '');
+    invalidateOccupancy(state.clinicId, state.appointment.date);
     showToast('Restored');
     setTimeout(() => history.back(), 400);
   } catch (err) {

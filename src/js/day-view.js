@@ -25,7 +25,6 @@ const state = {
 
 const $ = (sel) => document.querySelector(sel);
 
-
 export async function startDayView() {
   const m = me();
   if (!m) return;
@@ -86,7 +85,6 @@ function renderHeader() {
   if (mToday) mToday.textContent = fmtShort(today);
   if (mNext) mNext.textContent = fmtShort(addDays(today, 1));
   
-  // Update the mobile date picker button text
   if (mobileDisplay) mobileDisplay.textContent = fmtShort(state.dateISO);
 
   const todayBtn = $('#day-today');
@@ -152,7 +150,6 @@ function renderGrid() {
     const appts = grouped[slot] || [];
 
     if (appts.length === 0) {
-      // --- EMPTY SLOT ROW ---
       tableHtml += `
         <tr class="hover:bg-surface-hover/30 transition-colors group cursor-pointer" data-empty-slot="${slot}">
           <td class="px-4 md:px-6 py-3 md:py-4 text-[13px] md:text-[14px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)}</td>
@@ -171,7 +168,9 @@ function renderGrid() {
         const isCancelled = status === 'cancelled';
 
         const desktopActions = isCancelled
-          ? `<span class="text-[11px] md:text-[13px] font-bold text-red-500 uppercase">Cancelled</span>`
+          ? `<button data-action="rebook" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+               <i class="bi bi-arrow-counterclockwise"></i> Re-book
+             </button>`
           : isSeen
             ? `<span class="text-[11px] md:text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
             : `
@@ -187,22 +186,21 @@ function renderGrid() {
                  </button>
               </div>`;
 
-        // --- DESKTOP TABLE ROW (5 Columns) ---
         tableHtml += `
           <tr class="hover:bg-surface-hover/30 transition-colors border-b border-hairline cursor-pointer group" data-appt-id="${a.id}">
-            <td class="px-4 md:px-6 py-2.5 md:py-3 whitespace-nowrap text-[13px] font-bold text-ink">
+            <td class="px-4 md:px-6 py-2.5 md:py-3 whitespace-nowrap text-[13px] font-bold text-ink ${isCancelled ? 'opacity-50' : ''}">
               ${fmtSlot(slot)} – ${fmtSlot(addSlot(slot, state.schedule.slotMinutes, a.durationSlots || 1))}
             </td>
             <td class="hidden md:table-cell px-2 py-3 whitespace-nowrap">
-              <div class="flex gap-1">
+              <div class="flex gap-1 ${isCancelled ? 'opacity-50' : ''}">
                 <span class="px-2 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'New' : 'F/U'}</span>
                 <span class="px-2 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode || 'Visit'}</span>
               </div>
             </td>
-            <td class="px-4 md:px-6 py-2.5 md:py-3 text-[14px] font-bold text-ink group-hover:text-accent transition-colors">
+            <td class="px-4 md:px-6 py-2.5 md:py-3 text-[14px] font-bold text-ink group-hover:text-accent transition-colors ${isCancelled ? 'opacity-50 line-through' : ''}">
               ${esc(a.patientName)}
             </td>
-            <td class="hidden md:table-cell px-4 py-3 text-[13px] text-ink-mute whitespace-nowrap">
+            <td class="hidden md:table-cell px-4 py-3 text-[13px] text-ink-mute whitespace-nowrap ${isCancelled ? 'opacity-50' : ''}">
               ${esc(a.patientPhone || '—')}
             </td>
             <td class="px-4 md:px-6 py-2.5 md:py-3 text-right">
@@ -210,26 +208,20 @@ function renderGrid() {
             </td>
           </tr>`;
 
-        // --- MOBILE LIST ROW (Single row, short badges, no phone) ---
         mobileHtml += `
           <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0" data-appt-id="${a.id}">
-            
-            <!-- Time (Start time only) -->
-            <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap">
+            <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap ${isCancelled ? 'opacity-50' : ''}">
               ${fmtSlot(slot)}
             </div>
-            
-            <!-- Patient Name (Truncates if too long) -->
-            <div class="flex-1 min-w-0 text-[13.5px] font-bold text-ink group-hover:text-accent transition-colors truncate">
+            <div class="flex-1 min-w-0 text-[13.5px] font-bold text-ink group-hover:text-accent transition-colors truncate ${isCancelled ? 'opacity-50 line-through' : ''}">
               ${esc(a.patientName)}
             </div>
-            
-            <!-- Short Type Badges (N/F, V/C in one row) -->
             <div class="shrink-0 flex items-center gap-1">
-              <span class="px-1.5 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'N' : 'F'}</span>
-              <span class="px-1.5 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode === 'call' ? 'C' : 'V'}</span>
+               ${isCancelled 
+                 ? `<button data-action="rebook" data-id="${a.id}" class="px-2 py-1 rounded bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm hover:bg-red-600 transition-colors">Re-book</button>` 
+                 : `<span class="px-1.5 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'N' : 'F'}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode === 'call' ? 'C' : 'V'}</span>`}
             </div>
-            
           </div>`;
       });
     }
@@ -238,7 +230,6 @@ function renderGrid() {
   tableRoot.innerHTML = tableHtml;
   mobileRoot.innerHTML = mobileHtml;
 
-  // Attach events to BOTH the Desktop Table and Mobile List
   [tableRoot, mobileRoot].forEach(root => {
     root.querySelectorAll('[data-empty-slot]').forEach(el => {
       el.addEventListener('click', (e) => {
@@ -277,6 +268,11 @@ async function handleRowAction(action, id) {
   const appt = state.appointments.find(a => a.id === id);
   if (!appt) return;
 
+  if (action === 'rebook') {
+    location.href = `/book?date=${encodeURIComponent(state.dateISO)}&slot=${encodeURIComponent(appt.slot)}`;
+    return;
+  }
+
   if (action === 'seen' || action === 'reschedule') {
     openRowModal(appt);
     if (action === 'reschedule') {
@@ -288,12 +284,14 @@ async function handleRowAction(action, id) {
       $('#ra-panel-followup')?.classList.remove('hidden');
       $('#ra-fu-date').value = '';
       $('#ra-fu-interval').value = '';
+      
       try {
         state.pendingFollowup = await findPendingForPatient(state.clinicId, appt.patientId);
         const note = $('#ra-followup-note');
         if (state.pendingFollowup && note) {
           note.classList.remove('hidden');
-          note.innerHTML = `Patient already has a pending follow-up due <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>. Choosing a new one will <strong>replace</strong> it.`;
+          note.className = 'bg-blue-50 text-[12px] text-blue-700 border border-blue-200 p-3 rounded-lg mb-4';
+          note.innerHTML = `Patient has an existing follow-up scheduled for <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>.`;
         } else if (note) {
           note.classList.add('hidden');
         }
@@ -364,7 +362,6 @@ function wireNavButtons() {
 }
 
 function wireDatePickers() {
-  // Mobile Date Picker
   const mBtn = $('#mobile-date-picker-btn');
   const mInput = $('#mobile-date-picker-input');
   if (mBtn && mInput) {
@@ -377,7 +374,6 @@ function wireDatePickers() {
     });
   }
 
-  // Desktop Date Picker
   const dBtn = $('#desktop-date-picker-btn');
   const dInput = $('#desktop-date-picker-input');
   if (dBtn && dInput) {
@@ -406,7 +402,7 @@ function onEmptySlotClick(slot) {
 }
 
 // ============================================================
-// ROW ACTION MODAL (mobile bottom-sheet, desktop centered card)
+// ROW ACTION MODAL
 // ============================================================
 
 function openRowModal(appt) {
@@ -507,7 +503,8 @@ function wireRowModal() {
       const note = $('#ra-followup-note');
       if (state.pendingFollowup && note) {
         note.classList.remove('hidden');
-        note.innerHTML = `Patient already has a pending follow-up due <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>. Choosing a new one will <strong>replace</strong> it.`;
+        note.className = 'bg-blue-50 text-[12px] text-blue-700 border border-blue-200 p-3 rounded-lg mb-4';
+        note.innerHTML = `Patient has an existing follow-up scheduled for <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>.`;
       } else if (note) {
         note.classList.add('hidden');
       }
@@ -546,13 +543,24 @@ function wireRowModal() {
       dueDate = intervalToDate(appt.date, days);
     }
 
+    if (!dueDate && state.pendingFollowup) {
+      const proceed = confirm(
+        `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
+      );
+      if (!proceed) return;
+    }
+
     try {
       await updateStatus(appt.id, 'seen', '');
       invalidateOccupancy(state.clinicId, appt.date);
 
       if (dueDate) {
         if (state.pendingFollowup) {
-          await supersede(state.pendingFollowup.id, 'Replaced by new follow-up from visit on ' + appt.date);
+          await supersede(
+            state.pendingFollowup.id, 
+            `Visited early on ${appt.date}`, 
+            dueDate
+          );
         }
         await createFromVisit(appt, days || null, dueDate);
       }

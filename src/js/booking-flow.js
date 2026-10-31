@@ -2,10 +2,9 @@
 // Booking flow
 // ============================================================
 
-import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId, getActiveClinic } from './lib/clinic-context.js';
-import { searchByName, searchByPhone, create as createPatient, get as getPatient, findExact } from './patients.js';
+import { searchByName, searchByPhone, create as createPatient, get as getPatient } from './patients.js';
 import { create as createAppointment, listForDay, listForPatient } from './appointments.js';
 import { slotsForType, fitsInGrid, checkSlotOccupancy, invalidateOccupancy } from './booking-policy.js';
 import { generateSlots, isDayOpen } from './slot-grid.js';
@@ -13,6 +12,7 @@ import { todayISO, fmtDate, fmtSlot, addDays, isoToDate } from './date-utils.js'
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from './lib/firebase-init.js';
 import { showToast } from './lib/toast.js';
+import { esc } from './lib/format.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -44,8 +44,13 @@ export async function startBookingFlow() {
   await readQueryParams();
   wireEvents();
   renderDateStrip();
-  renderSlotGrid();
+  
+  // Show loading state while we fetch existing bookings
+  $('#book-slots').innerHTML = `<div class="p-6 text-center text-[13px] text-ink-mute">Loading slots...</div>`;
+  
   await refreshExisting();
+  
+  renderSlotGrid();
   renderSummary();
   updateToggles();
 }
@@ -147,14 +152,15 @@ function renderDateStrip() {
   }).join('');
 
   strip.querySelectorAll('[data-day]').forEach(el => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', async () => {
       state.dateISO = el.getAttribute('data-day');
       state.slot = null;
       renderDateStrip();
-      refreshExisting().then(() => {
-        renderSlotGrid();
-        renderSummary();
-      });
+      
+      $('#book-slots').innerHTML = `<div class="p-6 text-center text-[13px] text-ink-mute">Loading slots...</div>`;
+      await refreshExisting();
+      renderSlotGrid();
+      renderSummary();
     });
   });
 }
@@ -383,7 +389,6 @@ function mergeUnique(a, b) {
   for (const x of b) { if (!seen.has(x.id)) out.push(x); }
   return out;
 }
-
 
 async function save() {
   if (!state.patient || !state.slot || state.saving) return;

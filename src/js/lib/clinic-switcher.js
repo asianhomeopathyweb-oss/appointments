@@ -1,38 +1,67 @@
 ﻿import { listClinics, getActiveClinicId, setActiveClinicId } from './clinic-context.js';
 
-export function initClinicSwitcher(slotId) {
-  const slot = document.getElementById(slotId);
-  if (!slot) return;
-  const clinics = listClinics();
-  if (clinics.length === 0) return;
-  const activeId = getActiveClinicId();
-  const active = clinics.find((c) => c.id === activeId) || clinics[0];
+export function initClinicSwitcher(user) {
+  if (!user || !user.clinicIds || user.clinicIds.length === 0) return;
 
-  if (clinics.length === 1) {
-    slot.innerHTML = `<span class="inline-flex items-center gap-1.5 px-3 h-8 rounded-full bg-surface-press text-ink-mute text-[13px]"><i class="bi bi-geo-alt" aria-hidden="true"></i><span>${escapeHtml(active.name)}</span></span>`;
-    return;
-  }
+  const CLINIC_NAMES = { 'ah-ubl': 'Hubballi', 'ah-bza': 'Vijayawada' };
+  const clinics = user.clinicIds.map(id => ({ id, name: CLINIC_NAMES[id] || id }));
+  
+  const storedId = localStorage.getItem('ah.activeClinicId');
+  const activeId = (storedId && clinics.find(c => c.id === storedId)) ? storedId : clinics[0].id;
+  const active = clinics.find(c => c.id === activeId) || clinics[0];
 
-  const uid = `cs-${slotId}`;
-  slot.style.position = 'relative';
-  slot.innerHTML = `<button type="button" id="${uid}-btn" aria-haspopup="menu" aria-expanded="false" class="inline-flex items-center gap-1.5 px-3 h-8 rounded-full bg-surface-press hover:bg-hairline text-ink text-[13px] font-medium transition-colors focus:outline-none focus:shadow-focus"><i class="bi bi-geo-alt" aria-hidden="true"></i><span>${escapeHtml(active.name)}</span><i class="bi bi-chevron-down text-[11px] text-ink-faint" aria-hidden="true"></i></button><div id="${uid}-menu" role="menu" hidden class="absolute left-0 mt-1 z-50 min-w-[180px] rounded-xl bg-white shadow-panel border border-hairline py-1">${clinics.map((c) => `<button type="button" role="menuitem" data-clinic="${escapeHtml(c.id)}" class="w-full text-left px-3 py-2 text-[13px] hover:bg-surface-hover ${c.id === active.id ? 'text-accent font-medium' : 'text-ink'}">${escapeHtml(c.name)}</button>`).join('')}</div>`;
+  const renderSlot = (slotId) => {
+    const slot = document.getElementById(slotId);
+    if (!slot) return;
+    
+    // If only 1 clinic, show a static chip
+    if (clinics.length === 1) {
+      slot.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 px-3 h-8 rounded-full bg-surface-hover text-ink-mute text-[12px] font-semibold border border-hairline">
+          <i class="bi bi-geo-alt text-[12px]"></i>
+          <span>${active.name}</span>
+        </span>`;
+      return;
+    }
+    
+    // If multiple clinics, show a dropdown
+    const uid = `cs-${slotId}`;
+    slot.innerHTML = `
+      <div class="relative">
+        <button type="button" id="${uid}-btn" class="inline-flex items-center gap-1.5 px-3 h-8 rounded-full bg-white hover:bg-surface-hover border border-hairline text-ink text-[12px] font-bold transition-colors shadow-sm">
+          <i class="bi bi-geo-alt text-accent"></i>
+          <span>${active.name}</span>
+          <i class="bi bi-chevron-down text-[10px] text-ink-faint"></i>
+        </button>
+        <div id="${uid}-menu" hidden class="absolute left-0 mt-2 z-50 min-w-[160px] rounded-xl bg-white shadow-xl border border-hairline py-1 overflow-hidden">
+          ${clinics.map(c => `
+            <button type="button" data-clinic="${c.id}" class="w-full text-left px-4 py-2.5 text-[13px] font-semibold hover:bg-surface-hover transition-colors ${c.id === active.id ? 'text-accent bg-accent-soft/50' : 'text-ink'}">
+              ${c.name}
+            </button>
+          `).join('')}
+        </div>
+      </div>`;
+      
+    const btn = document.getElementById(`${uid}-btn`);
+    const menu = document.getElementById(`${uid}-menu`);
+    
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+    
+    menu.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-clinic]');
+      if (!target) return;
+      setActiveClinicId(target.dataset.clinic);
+      location.reload();
+    });
+    
+    document.addEventListener('click', (e) => {
+      if (!slot.contains(e.target)) menu.hidden = true;
+    });
+  };
 
-  const btn = document.getElementById(`${uid}-btn`);
-  const menu = document.getElementById(`${uid}-menu`);
-  const open = () => { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.addEventListener('click', onDocClick); document.addEventListener('keydown', onKeyDown); };
-  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKeyDown); };
-  function onDocClick(e) { if (!slot.contains(e.target)) close(); }
-  function onKeyDown(e) { if (e.key === 'Escape') close(); }
-  btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden ? open() : close(); });
-  menu.addEventListener('click', (e) => {
-    const target = e.target.closest('[data-clinic]');
-    if (!target) return;
-    const id = target.dataset.clinic;
-    if (id === active.id) { close(); return; }
-    setActiveClinicId(id); location.reload();
-  });
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  renderSlot('clinic-switcher-slot-desktop');
+  renderSlot('clinic-switcher-slot-mobile');
 }

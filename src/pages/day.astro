@@ -1,49 +1,73 @@
 ﻿---
-import AppLayout from "../layouts/AppLayout.astro";
+import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Day">
-  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
+  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col h-[calc(100vh-52px)] bg-surface overflow-hidden">
 
-    <!-- Premium Floating Date Strip -->
-    <div class="flex items-center gap-3 mb-6 w-full">
-      <button id="day-prev" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
-        <i class="bi bi-chevron-left text-[16px]"></i>
+    <!-- Mobile Compact Header (3 dates) -->
+    <div class="md:hidden flex bg-white border border-hairline rounded-2xl p-1 shadow-sm mb-4 shrink-0">
+      <!-- Yesterday -->
+      <button id="day-prev" class="flex-1 flex flex-col items-center justify-center h-[56px] rounded-xl hover:bg-surface-hover transition-all text-ink-mute">
+        <span class="text-[9px] font-bold uppercase tracking-widest opacity-60">Yesterday</span>
+        <span id="mobile-day-prev" class="text-[15px] font-bold tnum mt-0.5">—</span>
       </button>
 
-      <div id="day-strip" class="flex-1 flex gap-2 bg-white border border-hairline p-1.5 rounded-2xl shadow-sm overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <!-- Filled by JS -->
-      </div>
+      <!-- Today (Highlighted) -->
+      <button id="day-today-mobile" class="flex-1 flex flex-col items-center justify-center h-[56px] rounded-xl bg-ink text-white shadow-md transition-all">
+        <span class="text-[9px] font-bold uppercase tracking-widest opacity-80">Today</span>
+        <span id="mobile-day-today" class="text-[15px] font-bold tnum mt-0.5">—</span>
+      </button>
 
-      <button id="day-next" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
-        <i class="bi bi-chevron-right text-[16px]"></i>
+      <!-- Tomorrow -->
+      <button id="day-next" class="flex-1 flex flex-col items-center justify-center h-[56px] rounded-xl hover:bg-surface-hover transition-all text-ink-mute">
+        <span class="text-[9px] font-bold uppercase tracking-widest opacity-60">Tomorrow</span>
+        <span id="mobile-day-next" class="text-[15px] font-bold tnum mt-0.5">—</span>
       </button>
     </div>
 
-    <!-- Table Header Info -->
-    <div class="flex items-center justify-between mb-4 px-2">
-      <div class="text-[22px] font-bold text-ink tracking-tight flex items-center gap-3">
-        <span id="day-date">—</span>
-        <span class="text-[13px] font-medium text-ink-faint px-3 py-1 bg-surface-hover rounded-full" id="day-sub">—</span>
+    <!-- Desktop Header (7-Day Strip) -->
+    <div class="hidden md:flex flex-col gap-4 mb-6 w-full shrink-0">
+      <div class="flex items-center gap-3 w-full">
+        <button id="day-prev-desktop" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+          <i class="bi bi-chevron-left text-[16px]"></i>
+        </button>
+
+        <div id="day-strip" class="flex-1 flex gap-2 bg-white border border-hairline p-1.5 rounded-2xl shadow-sm overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <!-- Filled by JS -->
+        </div>
+
+        <button id="day-next-desktop" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+          <i class="bi bi-chevron-right text-[16px]"></i>
+        </button>
       </div>
-      <button id="day-today" class="text-[13px] font-bold text-accent hover:underline hidden">
-        Go to Today
-      </button>
+
+      <div class="flex items-center justify-between px-2">
+        <div class="flex items-center gap-3">
+          <div class="text-[22px] font-bold text-ink tracking-tight" id="day-date">—</div>
+          <div class="text-[13px] font-medium text-ink-faint px-3 py-1 bg-surface-hover rounded-full" id="day-sub">—</div>
+        </div>
+        <button id="day-today" class="text-[13px] font-bold text-accent hover:underline hidden">
+          Go to Today
+        </button>
+      </div>
     </div>
 
     <!-- Table Container -->
-    <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline">
-      <table class="w-full text-left border-collapse">
-        <thead class="sticky top-0 bg-surface-hover z-10 border-b border-hairline">
-          <tr>
-            <th class="px-6 py-4 text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[220px]">Time</th>
-            <th class="px-6 py-4 text-[12px] font-bold tracking-widest text-ink-mute uppercase">Patient</th>
-            <th class="px-6 py-4 text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[400px]">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="day-grid" class="divide-y divide-hairline">
-          <!-- Filled by JS -->
-        </tbody>
-      </table>
+    <div class="flex-1 bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden flex flex-col">
+      <div class="overflow-x-auto overflow-y-auto flex-1">
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 bg-surface-hover z-10 border-b border-hairline">
+            <tr>
+              <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[100px] md:w-[220px]">Time</th>
+              <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase">Patient</th>
+              <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[120px] md:w-[400px]">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="day-grid" class="divide-y divide-hairline">
+            <!-- Filled by JS -->
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div>

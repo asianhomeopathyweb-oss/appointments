@@ -2,71 +2,75 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Appointment">
-  <div class="w-full max-w-[1100px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
+  <div class="w-full max-w-[1100px] mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col h-[calc(100vh-52px)] md:h-full bg-surface overflow-y-auto">
 
-    <!-- Header -->
-    <div class="flex items-center gap-4 mb-6">
+    <!-- Compact Header -->
+    <div class="flex items-start gap-3 md:gap-4 mb-4 md:mb-6">
       <button id="appt-close" type="button" aria-label="Close"
-        class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all">
-        <i class="bi bi-arrow-left text-[18px]"></i>
+        class="w-9 h-9 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all mt-0.5 md:mt-0">
+        <i class="bi bi-arrow-left text-[16px] md:text-[18px]"></i>
       </button>
-      <div>
-        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Appointment</div>
-        <div id="appt-patient" class="text-[22px] font-bold text-ink tracking-tight">—</div>
-        <div id="appt-phone" class="text-[13px] text-ink-mute mt-0.5">—</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Appointment</div>
+        <div id="appt-patient" class="text-[20px] md:text-[22px] font-bold text-ink tracking-tight truncate">—</div>
+        <div id="appt-phone" class="text-[12px] md:text-[13px] text-ink-mute mt-0.5">—</div>
       </div>
     </div>
 
-    <!-- Main Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    <!-- Main Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
       
-      <!-- LEFT: Details -->
-      <div class="lg:col-span-5 flex flex-col gap-6">
+      <!-- LEFT: Details (Compact on mobile) -->
+      <div class="lg:col-span-5 flex flex-col gap-4 md:gap-6">
         
-        <!-- When -->
-        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-6">
-          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">When</div>
-          <div id="appt-date" class="text-[20px] font-bold text-ink tracking-tight mb-1">—</div>
-          <div id="appt-slot" class="text-[15px] font-semibold text-accent tnum">—</div>
-        </div>
-
-        <!-- Type, Mode, Status -->
-        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-6">
-          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">Details</div>
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <div class="text-[13px] text-ink-mute">Type</div>
-              <div id="appt-type" class="text-[14px] font-bold text-ink">—</div>
-            </div>
-            <div class="flex items-center justify-between">
-              <div class="text-[13px] text-ink-mute">Mode</div>
-              <div id="appt-mode" class="text-[14px] font-bold text-ink">—</div>
-            </div>
-            <div class="flex items-center justify-between">
-              <div class="text-[13px] text-ink-mute">Status</div>
-              <div id="appt-status" class="text-[13px] font-bold uppercase tracking-wider text-ink-mute">—</div>
+        <!-- When & Details Combined Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 md:p-6">
+          
+          <!-- When -->
+          <div class="mb-5 pb-5 border-b border-hairline">
+            <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">When</div>
+            <div class="flex items-baseline justify-between gap-2">
+              <div id="appt-date" class="text-[18px] md:text-[20px] font-bold text-ink tracking-tight">—</div>
+              <div id="appt-slot" class="text-[14px] md:text-[15px] font-bold text-accent tnum bg-accent-soft px-2.5 py-1 rounded-lg">—</div>
             </div>
           </div>
+
+          <!-- Details -->
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-1">Type</div>
+              <div id="appt-type" class="text-[13px] font-bold text-ink truncate">—</div>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-1">Mode</div>
+              <div id="appt-mode" class="text-[13px] font-bold text-ink truncate">—</div>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-1">Status</div>
+              <div id="appt-status" class="text-[11px] font-bold uppercase tracking-wider text-ink-mute truncate mt-0.5">—</div>
+            </div>
+          </div>
+
         </div>
 
       </div>
 
       <!-- RIGHT: Actions -->
       <div class="lg:col-span-7 flex flex-col">
-        <div id="appt-body" class="bg-white rounded-2xl shadow-sm border border-hairline flex flex-col h-full overflow-hidden">
+        <div id="appt-body" class="bg-white rounded-2xl shadow-sm border border-hairline flex flex-col flex-1 overflow-hidden">
           
-          <div class="px-6 py-4 border-b border-hairline bg-surface-hover/30">
+          <div class="px-5 md:px-6 py-3 md:py-4 border-b border-hairline bg-surface-hover/30">
             <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase">Actions</div>
           </div>
 
           <!-- Dynamic actions -->
-          <div id="appt-actions" class="p-6 space-y-3 flex-1"></div>
+          <div id="appt-actions" class="p-4 md:p-6 flex flex-col gap-2.5"></div>
 
           <!-- Reason picker -->
-          <div id="appt-reason" hidden class="p-6 border-t border-hairline bg-surface-hover/10"></div>
+          <div id="appt-reason" hidden class="p-5 md:p-6 border-t border-hairline bg-surface-hover/10"></div>
 
           <!-- Follow-up picker -->
-          <div id="appt-followup" hidden class="p-6 border-t border-hairline bg-surface-hover/10"></div>
+          <div id="appt-followup" hidden class="p-5 md:p-6 border-t border-hairline bg-surface-hover/10"></div>
 
         </div>
       </div>

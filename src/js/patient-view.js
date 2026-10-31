@@ -1,24 +1,10 @@
 // ============================================================
 // Patient view
-//
-// Controller for /patient?id=...
-//
-// Loads one patient and their full history, then renders four
-// accordion sections:
-//   - Upcoming   — appointments with date >= today, status booked
-//   - Past       — appointments with date < today (or status seen)
-//   - Follow-ups — all follow-ups (any status)
-//   - Cancelled  — appointments with status cancelled
-//
-// Every row links to the corresponding detail page:
-//   appointments -> /appointment?id=...
-//   follow-ups   -> /followup?id=...
-//   calls        -> not shown here (calls live on their own page)
 // ============================================================
 
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId } from './lib/clinic-context.js';
-import { get as getPatient } from './patients.js';
+import { get as getPatient, updatePatient } from './patients.js';
 import { listForPatient as listApptsForPatient } from './appointments.js';
 import { listForPatient as listFollowupsForPatient } from './followups.js';
 import { todayISO, fmtDate, fmtSlot, fmtRelative } from './date-utils.js';
@@ -32,7 +18,8 @@ const state = {
   patient: null,
   appointments: [],
   followups: [],
-  loading: true
+  loading: true,
+  saving: false
 };
 
 // ---------- entry ----------
@@ -55,6 +42,7 @@ export async function startPatientView() {
   renderHeader();
   await loadHistory();
   renderSections();
+  wireEditModal();
 }
 
 // ---------- data ----------
@@ -68,7 +56,6 @@ async function loadHistory() {
     state.appointments = appts || [];
     state.followups = fus || [];
   } catch (err) {
-    console.error('[patient-view] history load failed:', err);
     state.appointments = [];
     state.followups = [];
   } finally {
@@ -156,7 +143,7 @@ function section(title, count, inner) {
   return `
     <div class="border-t border-hairline first:border-t-0">
       <div class="px-4 md:px-6 pt-5 pb-2">
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">${esc(title)} · ${count}</div>
+        <div class="text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-ink-faint">${esc(title)} · ${count}</div>
       </div>
       ${inner}
     </div>`;
@@ -165,24 +152,24 @@ function section(title, count, inner) {
 function apptRow(a) {
   const status = a.status || 'booked';
   const dot = status === 'seen'
-    ? '<i class="bi bi-check-circle-fill text-accent text-[13px]"></i>'
+    ? '<i class="bi bi-check-circle-fill text-accent text-[14px]"></i>'
     : status === 'cancelled'
-      ? '<i class="bi bi-dash-circle text-ink-faint text-[13px]"></i>'
+      ? '<i class="bi bi-dash-circle text-ink-faint text-[14px]"></i>'
       : '<span class="inline-block w-2 h-2 rounded-full bg-ink-faint"></span>';
   const nameStyle = status === 'cancelled' ? 'line-through text-ink-faint' : 'text-ink';
   const meta = [];
-  if (a.type) meta.push(a.type);
-  if (a.mode) meta.push(a.mode);
+  if (a.type) meta.push(a.type === 'new' ? 'New' : 'Follow-up');
+  if (a.mode) meta.push(a.mode === 'call' ? 'Call' : 'Visit');
   if (status === 'cancelled' && a.cancelledReason) meta.push('· ' + a.cancelledReason.replace('_', ' '));
   return `
     <div data-appt-id="${esc(a.id)}"
-      class="flex items-center gap-3 px-4 md:px-6 h-[58px] border-b border-hairline hover:bg-surface-hover cursor-pointer">
+      class="flex items-center gap-3 px-4 md:px-6 h-[60px] hover:bg-surface-hover cursor-pointer transition-colors">
       <div class="w-[80px] shrink-0">
-        <div class="text-[12.5px] text-ink tnum">${esc(fmtDate(a.date))}</div>
-        <div class="text-[11.5px] text-ink-faint tnum">${esc(fmtSlot(a.slot))}</div>
+        <div class="text-[12px] font-semibold text-ink tnum">${esc(fmtDate(a.date))}</div>
+        <div class="text-[11px] text-ink-faint tnum">${esc(fmtSlot(a.slot))}</div>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-[14px] ${nameStyle} truncate">${esc(meta.join(' · '))}</div>
+        <div class="text-[13.5px] font-medium ${nameStyle} truncate">${esc(meta.join(' · '))}</div>
       </div>
       <div class="shrink-0">${dot}</div>
     </div>`;
@@ -190,7 +177,7 @@ function apptRow(a) {
 
 function fuRow(f) {
   const statusPill = f.status === 'pending'
-    ? `<span class="text-[11px] text-accent">pending</span>`
+    ? `<span class="text-[11px] font-bold text-accent">pending</span>`
     : f.status === 'done'
       ? `<span class="text-[11px] text-ink-mute">done</span>`
       : f.status === 'superseded'
@@ -198,13 +185,13 @@ function fuRow(f) {
         : `<span class="text-[11px] text-ink-faint">${esc(f.status || '')}</span>`;
   return `
     <div data-fu-id="${esc(f.id)}"
-      class="flex items-center gap-3 px-4 md:px-6 h-[58px] border-b border-hairline hover:bg-surface-hover cursor-pointer">
+      class="flex items-center gap-3 px-4 md:px-6 h-[60px] hover:bg-surface-hover cursor-pointer transition-colors">
       <div class="w-[80px] shrink-0">
-        <div class="text-[12.5px] text-ink tnum">${esc(fmtDate(f.dueDate))}</div>
-        <div class="text-[11.5px] text-ink-faint">${esc(fmtRelative(f.dueDate))}</div>
+        <div class="text-[12px] font-semibold text-ink tnum">${esc(fmtDate(f.dueDate))}</div>
+        <div class="text-[11px] text-ink-faint">${esc(fmtRelative(f.dueDate))}</div>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-[13px] text-ink-mute truncate">
+        <div class="text-[12.5px] text-ink-mute truncate">
           ${f.seenOn ? `seen ${esc(fmtDate(f.seenOn))}` : ''}
           ${f.intervalDays ? `<span class="mx-1 text-ink-faint">·</span>${esc(intervalLabel(f.intervalDays))}` : ''}
         </div>
@@ -225,14 +212,128 @@ function setText(sel, value) {
 
 function esc(s) {
   return String(s == null ? '' : s)
-    .split('&').join('&amp;')
-    .split('<').join('&lt;')
-    .split('>').join('&gt;')
-    .split('"').join('&quot;')
-    .split("'").join('&#39;');
+    .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
+    .split('"').join('&quot;').split("'").join('&#39;');
 }
 
 function renderError(msg) {
   const root = $('#pt-sections');
   if (root) root.innerHTML = `<div class="p-8 text-center text-[14px] text-ink-mute">${msg}</div>`;
+}
+
+// ---------- edit patient modal ----------
+function openEditModal() {
+  const p = state.patient;
+  
+  $('#ep-name').value = p.name || '';
+  $('#ep-phone').value = p.phone || '';
+  $('#ep-sex').value = p.sex || 'Male';
+  $('#ep-referral').value = p.referral || 'Google';
+  $('#ep-address').value = p.address || '';
+
+  if (p.age) {
+    $('#ep-age').value = p.age;
+    $('#ep-age-unit').value = 'years';
+  } else {
+    $('#ep-age').value = '';
+    $('#ep-age-unit').value = 'years';
+  }
+  
+  $('#ep-backdrop').classList.remove('hidden');
+  $('#ep-modal').classList.remove('hidden');
+  $('#ep-modal').classList.add('flex'); // Ensure display:flex
+
+  updateSaveState();
+  setTimeout(() => $('#ep-name').focus(), 150);
+}
+
+function closeEditModal() {
+  $('#ep-backdrop').classList.add('hidden');
+  $('#ep-modal').classList.add('hidden');
+  $('#ep-modal').classList.remove('flex');
+}
+
+function updateSaveState() {
+  const name = $('#ep-name').value.trim();
+  const phone = $('#ep-phone').value.trim();
+  $('#ep-save').disabled = !name || !phone || state.saving;
+}
+
+async function savePatient() {
+  if (state.saving) return;
+  
+  const name = $('#ep-name').value.trim();
+  const phone = $('#ep-phone').value.trim();
+  if (!name || !phone) return;
+
+  state.saving = true;
+  const btn = $('#ep-save');
+  btn.textContent = 'Saving...';
+  updateSaveState();
+
+  let finalAge = $('#ep-age').value;
+  const unit = $('#ep-age-unit').value;
+  
+  if (finalAge) {
+    finalAge = Number(finalAge);
+    if (unit === 'months') finalAge = Math.round(finalAge / 12);
+    if (unit === 'days') finalAge = Math.round(finalAge / 365);
+  }
+
+  const changes = {
+    name: name,
+    phone: phone,
+    age: finalAge || null,
+    sex: $('#ep-sex').value,
+    address: $('#ep-address').value,
+    referral: $('#ep-referral').value
+  };
+
+  try {
+    await updatePatient(state.patientId, changes);
+    showToast('Patient updated');
+    setTimeout(() => location.reload(), 400);
+  } catch (err) {
+    console.error(err);
+    showToast('Could not save changes', 'error');
+    state.saving = false;
+    btn.textContent = 'Save Changes';
+    updateSaveState();
+  }
+}
+
+function wireEditModal() {
+  const editBtn = $('#pt-edit');
+  if (editBtn) editBtn.addEventListener('click', openEditModal);
+
+  const closeBtn = $('#ep-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeEditModal);
+
+  const cancelBtn = $('#ep-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeEditModal);
+
+  const backdrop = $('#ep-backdrop');
+  if (backdrop) backdrop.addEventListener('click', closeEditModal);
+
+  const nameIn = $('#ep-name');
+  if (nameIn) {
+    nameIn.addEventListener('input', (e) => {
+      const v = e.target.value;
+      const next = v.replace(/(^|\s)([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase());
+      if (next !== v) {
+        const pos = e.target.selectionStart;
+        e.target.value = next;
+        try { e.target.setSelectionRange(pos, pos); } catch {}
+      }
+      updateSaveState();
+    });
+  }
+
+  ['#ep-phone', '#ep-age', '#ep-age-unit', '#ep-sex', '#ep-address', '#ep-referral'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.addEventListener('input', updateSaveState);
+  });
+
+  const saveBtn = $('#ep-save');
+  if (saveBtn) saveBtn.addEventListener('click', savePatient);
 }

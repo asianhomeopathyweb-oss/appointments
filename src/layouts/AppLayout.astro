@@ -51,7 +51,7 @@ const path = Astro.url.pathname;
     
     <!-- Desktop Sidebar -->
     <aside class="hidden md:flex w-[220px] flex-col border-r border-hairline bg-white overflow-y-auto shrink-0">
-      <nav class="flex flex-col gap-0.5 p-2" aria-label="Main">
+      <nav class="flex flex-col gap-0.5 p-2 flex-1" aria-label="Main">
         <a href="/day" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/day' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
           <i class="bi bi-calendar3 text-[15px]"></i> <span>Day</span>
         </a>
@@ -67,16 +67,25 @@ const path = Astro.url.pathname;
         <a href="/calls" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/calls' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
           <i class="bi bi-telephone text-[15px]"></i> <span>Calls</span>
         </a>
-        <a href="/reports" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/reports' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+
+        <!-- Admin Only Links -->
+        <a href="/reports" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/reports' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
           <i class="bi bi-bar-chart text-[15px]"></i> <span>Reports</span>
         </a>
-        <a href="/activity" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/activity' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+        <a href="/activity" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/activity' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
           <i class="bi bi-clock-history text-[15px]"></i> <span>Activity</span>
         </a>
-        <a href="/settings" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/settings' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+        <a href="/settings" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/settings' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
           <i class="bi bi-gear text-[15px]"></i> <span>Settings</span>
         </a>
       </nav>
+
+      <!-- Desktop Logout -->
+      <div class="p-2 border-t border-hairline mt-auto">
+        <button id="logout-desktop" class="w-full flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] text-red-500 hover:bg-red-50 transition-colors font-medium">
+          <i class="bi bi-box-arrow-right text-[15px]"></i> <span>Sign Out</span>
+        </button>
+      </div>
     </aside>
 
     <!-- Mobile Drawer -->
@@ -105,16 +114,25 @@ const path = Astro.url.pathname;
           <a href="/calls" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/calls' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
             <i class="bi bi-telephone text-[15px]"></i> <span>Calls</span>
           </a>
-          <a href="/reports" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/reports' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+
+          <!-- Admin Only Links (Mobile) -->
+          <a href="/reports" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/reports' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
             <i class="bi bi-bar-chart text-[15px]"></i> <span>Reports</span>
           </a>
-          <a href="/activity" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/activity' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+          <a href="/activity" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/activity' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
             <i class="bi bi-clock-history text-[15px]"></i> <span>Activity</span>
           </a>
-          <a href="/settings" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/settings' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
+          <a href="/settings" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors ${path === '/settings' ? 'bg-accent-soft text-accent font-medium' : 'text-ink-mute hover:bg-surface-hover'}`}>
             <i class="bi bi-gear text-[15px]"></i> <span>Settings</span>
           </a>
         </nav>
+
+        <!-- Mobile Logout -->
+        <div class="p-2 border-t border-hairline">
+          <button id="logout-mobile" class="w-full flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] text-red-500 hover:bg-red-50 transition-colors font-medium">
+            <i class="bi bi-box-arrow-right text-[15px]"></i> <span>Sign Out</span>
+          </button>
+        </div>
       </aside>
     </div>
 
@@ -127,6 +145,7 @@ const path = Astro.url.pathname;
   <script>
     import { requireAuth, isAdmin } from '../js/lib/auth-guards.js';
     import { initClinicSwitcher } from '../js/lib/clinic-switcher.js';
+    import { signOut } from '../js/lib/auth.js';
 
     // Mobile Drawer Logic
     const drawer = document.getElementById('mobile-drawer');
@@ -159,15 +178,33 @@ const path = Astro.url.pathname;
       a.addEventListener('click', closeDrawer);
     });
 
+    // Logout logic
+    async function handleLogout() {
+      if (!confirm('Are you sure you want to sign out?')) return;
+      try {
+        await signOut();
+        location.replace('/login');
+      } catch (err) {
+        console.error('Sign out failed:', err);
+      }
+    }
+
+    const logoutDesktop = document.getElementById('logout-desktop');
+    const logoutMobile = document.getElementById('logout-mobile');
+    if (logoutDesktop) logoutDesktop.addEventListener('click', handleLogout);
+    if (logoutMobile) logoutMobile.addEventListener('click', handleLogout);
+
     // Initialize Auth and UI
     (async () => {
       const user = await requireAuth();
       
       if (!isAdmin()) {
+        // Hide admin-only links from sidebar
         document.querySelectorAll('[data-admin-only="true"]').forEach(el => el.style.display = 'none');
+      } else {
+        // Only show clinic switcher for Admins
+        initClinicSwitcher(user);
       }
-
-      initClinicSwitcher(user);
     })();
   </script>
 </body>

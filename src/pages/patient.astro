@@ -2,45 +2,45 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Patient">
-  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
+  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col h-[calc(100vh-52px)] md:h-full bg-surface overflow-y-auto">
 
-    <!-- Header -->
-    <div class="flex items-center gap-4 mb-6">
+    <!-- Compact Header -->
+    <div class="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">
       <button id="pt-back" type="button" onclick="history.back()" aria-label="Back"
-        class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all">
-        <i class="bi bi-arrow-left text-[18px]"></i>
+        class="w-9 h-9 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all">
+        <i class="bi bi-arrow-left text-[16px] md:text-[18px]"></i>
       </button>
-      <div>
-        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Patient</div>
-        <div id="pt-name" class="text-[22px] font-bold text-ink tracking-tight">—</div>
-        <div id="pt-phone" class="text-[13px] text-ink-mute mt-0.5">—</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Patient</div>
+        <div id="pt-name" class="text-[20px] md:text-[22px] font-bold text-ink tracking-tight truncate">—</div>
+        <div id="pt-phone" class="text-[12px] md:text-[13px] text-ink-mute mt-0.5">—</div>
       </div>
     </div>
 
-    <!-- Main Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+    <!-- Main Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 flex-1">
       
       <!-- LEFT: Actions -->
-      <div class="lg:col-span-4 flex flex-col gap-6">
+      <div class="lg:col-span-4 flex flex-col gap-4 md:gap-6">
         
-        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-6">
-          <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-4">Quick Actions</div>
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-6">
+          <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-3 md:mb-4">Quick Actions</div>
           
-          <button id="pt-book" type="button"
-            class="w-full h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2 mb-3">
-            <i class="bi bi-calendar-plus"></i> Book Appointment
-          </button>
-          
-          <button id="pt-call" type="button"
-            class="w-full h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
-            <i class="bi bi-telephone"></i> Call Patient
-          </button>
-        </div>
+          <div class="flex flex-col gap-2 md:gap-3">
+            <button id="pt-book" type="button"
+              class="w-full h-10 md:h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] md:text-[14px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+              <i class="bi bi-calendar-plus"></i> Book Appointment
+            </button>
+            
+            <button id="pt-call" type="button"
+              class="w-full h-10 md:h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] md:text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+              <i class="bi bi-telephone"></i> Call Patient
+            </button>
 
-        <div class="bg-gradient-to-br from-accent-soft to-surface rounded-2xl border border-accent/10 p-6 flex-1">
-          <div class="text-[11px] font-bold tracking-widest text-accent uppercase mb-2">Tip</div>
-          <div class="text-[13px] font-medium text-ink-mute leading-relaxed">
-            Click any visit or follow-up on the right to see full details and take action.
+            <button id="pt-edit" type="button"
+              class="w-full h-10 md:h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] md:text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+              <i class="bi bi-pencil-square"></i> Edit Details
+            </button>
           </div>
         </div>
 
@@ -50,8 +50,8 @@ import AppLayout from '../layouts/AppLayout.astro';
       <div class="lg:col-span-8 flex flex-col">
         <div class="bg-white rounded-2xl shadow-sm border border-hairline flex flex-col flex-1 overflow-hidden">
           
-          <div class="px-6 py-4 border-b border-hairline bg-surface-hover/30">
-            <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase">History & Upcoming</div>
+          <div class="px-4 md:px-6 py-3 md:py-4 border-b border-hairline bg-surface-hover/30">
+            <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-mute uppercase">History & Upcoming</div>
           </div>
 
           <div id="pt-sections" class="flex-1 overflow-y-auto divide-y divide-hairline"></div>
@@ -61,6 +61,91 @@ import AppLayout from '../layouts/AppLayout.astro';
 
     </div>
 
+  </div>
+
+  <!-- Edit Patient Modal (Added 'hidden' class to both) -->
+  <div id="ep-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"></div>
+  
+  <div id="ep-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:w-[min(94vw,460px)]">
+    
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 flex items-center justify-between shrink-0">
+      <div class="text-[16px] font-bold text-ink">Edit Patient</div>
+      <button id="ep-close" type="button" aria-label="Close"
+        class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute">
+        <i class="bi bi-x-lg text-[16px]"></i>
+      </button>
+    </div>
+    
+    <div class="p-5 space-y-4 overflow-y-auto flex-1">
+      
+      <!-- Name -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Full Name <span class="text-red-500">*</span></label>
+        <input id="ep-name" type="text" required autocomplete="off" placeholder="e.g. Ramamurthy T"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+      </div>
+
+      <!-- Phone -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Phone Number <span class="text-red-500">*</span></label>
+        <input id="ep-phone" type="tel" required inputmode="tel" autocomplete="off" placeholder="10-digit mobile number"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+      </div>
+
+      <!-- Age & Sex -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Age</label>
+          <div class="flex gap-1">
+            <input id="ep-age" type="number" min="0" placeholder="0"
+              class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+            <select id="ep-age-unit" class="w-[70px] h-11 px-1 rounded-xl border border-hairline bg-surface text-[12px] focus:outline-none focus:border-accent transition-all">
+              <option value="years">Yrs</option>
+              <option value="months">Mos</option>
+              <option value="days">Days</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Sex</label>
+          <select id="ep-sex"
+            class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Address</label>
+        <input id="ep-address" type="text" autocomplete="off" placeholder="Dharwad"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+      </div>
+
+      <!-- Referral -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Referral</label>
+        <select id="ep-referral"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+          <option value="Google">Google</option>
+          <option value="Website">Website</option>
+          <option value="Referral">Referral</option>
+          <option value="Direct">Direct</option>
+        </select>
+      </div>
+
+    </div>
+    
+    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3 shrink-0 pb-[env(safe-area-inset-bottom,20px)]">
+      <button id="ep-cancel" type="button"
+        class="flex-1 h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
+      <button id="ep-save" type="button" disabled
+        class="flex-1 h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">Save Changes</button>
+    </div>
   </div>
 
   <script>

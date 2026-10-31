@@ -60,20 +60,41 @@ async function loadSchedule(clinicId) {
 }
 
 function renderHeader() {
+  const today = todayISO();
+  const yesterday = addDays(today, -1);
+  const tomorrow = addDays(today, 1);
+
+  // Desktop Elements
   const dateEl = $('#day-date');
   const subEl = $('#day-sub');
-  if (dateEl) dateEl.textContent = fmtDate(state.dateISO);
   
+  // Mobile Elements (3 buttons)
+  const mPrev = $('#mobile-day-prev');
+  const mToday = $('#mobile-day-today');
+  const mNext = $('#mobile-day-next');
+
+  // Populate Desktop
+  if (dateEl) dateEl.textContent = fmtDate(state.dateISO);
   if (subEl) {
     const total = state.appointments.filter((a) => a.status !== 'cancelled').length;
     const seen = state.appointments.filter((a) => a.status === 'seen').length;
     subEl.textContent = total === 0 ? 'No appointments' : `${total} booked · ${seen} seen`;
   }
+
+  // Populate Mobile (Yesterday / Today / Tomorrow)
+  const fmtShort = (iso) => {
+    const d = isoToDate(iso);
+    return `${String(d.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+  };
+  
+  if (mPrev) mPrev.textContent = fmtShort(yesterday);
+  if (mToday) mToday.textContent = fmtShort(today);
+  if (mNext) mNext.textContent = fmtShort(tomorrow);
   
   const todayBtn = $('#day-today');
   if (todayBtn) todayBtn.hidden = isToday(state.dateISO);
 
-  const today = todayISO();
+  // Desktop Strip logic
   const start = addDays(state.dateISO, -3);
   const days = [];
   for (let i = 0; i < 7; i++) days.push(addDays(start, i));
@@ -130,9 +151,9 @@ function renderGrid() {
     if (appts.length === 0) {
       return `
         <tr class="hover:bg-surface-hover/30 transition-colors group cursor-pointer" data-empty-slot="${slot}">
-          <td class="px-6 py-4 text-[14px] font-bold text-ink">${fmtSlot(slot)}</td>
-          <td class="px-6 py-4 text-[14px] text-ink-faint italic group-hover:text-accent">Click to book...</td>
-          <td class="px-6 py-4"></td>
+          <td class="px-4 md:px-6 py-4 text-[13px] md:text-[14px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)}</td>
+          <td class="px-4 md:px-6 py-4 text-[13px] md:text-[14px] text-ink-faint italic group-hover:text-accent">Click to book...</td>
+          <td class="px-4 md:px-6 py-4"></td>
         </tr>`;
     }
 
@@ -142,36 +163,36 @@ function renderGrid() {
       const isCancelled = status === 'cancelled';
       
       const actionHtml = isCancelled 
-        ? `<span class="text-[13px] font-bold text-red-500 uppercase">Cancelled</span>`
+        ? `<span class="text-[11px] md:text-[13px] font-bold text-red-500 uppercase">Cancelled</span>`
         : isSeen 
-          ? `<span class="text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
+          ? `<span class="text-[11px] md:text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
           : `
-            <div class="flex gap-2">
-               <button data-action="seen" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
+            <div class="flex flex-wrap gap-2">
+               <button data-action="seen" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
                  <i class="bi bi-check-circle-fill"></i> Complete
                </button>
-               <button data-action="reschedule" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-orange-400 hover:bg-orange-500 text-white text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
+               <button data-action="reschedule" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-orange-400 hover:bg-orange-500 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
                  <i class="bi bi-clock-fill"></i> Reschedule
                </button>
-               <button data-action="delete" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
+               <button data-action="delete" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm">
                  <i class="bi bi-trash-fill"></i> Delete
                </button>
             </div>`;
 
       return `
         <tr class="hover:bg-surface-hover/30 transition-colors border-b border-hairline">
-          <td class="px-6 py-4">
-             <div class="text-[14px] font-bold text-ink">${fmtSlot(slot)} - ${fmtSlot(addSlot(slot, state.schedule.slotMinutes, a.durationSlots || 1))}</div>
+          <td class="px-4 md:px-6 py-4">
+             <div class="text-[13px] md:text-[14px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)} - ${fmtSlot(addSlot(slot, state.schedule.slotMinutes, a.durationSlots || 1))}</div>
              <div class="flex gap-1 mt-1.5">
-               <span class="px-2 py-0.5 rounded bg-blue-500 text-white text-[10px] font-bold uppercase">${a.type === 'new' ? 'New' : 'Followup'}</span>
-               <span class="px-2 py-0.5 rounded bg-pink-500 text-white text-[10px] font-bold uppercase">${a.mode || 'Visit'}</span>
+               <span class="px-2 py-0.5 rounded bg-blue-500 text-white text-[9px] md:text-[10px] font-bold uppercase">${a.type === 'new' ? 'New' : 'Followup'}</span>
+               <span class="px-2 py-0.5 rounded bg-pink-500 text-white text-[9px] md:text-[10px] font-bold uppercase">${a.mode || 'Visit'}</span>
              </div>
           </td>
-          <td class="px-6 py-4">
-             <div class="text-[15px] font-bold text-ink cursor-pointer hover:underline" data-patient-id="${a.patientId}">${esc(a.patientName)}</div>
-             <div class="text-[13px] text-ink-mute mt-0.5">${esc(a.patientPhone || '')}</div>
+          <td class="px-4 md:px-6 py-4">
+             <div class="text-[14px] md:text-[15px] font-bold text-ink cursor-pointer hover:underline" data-patient-id="${a.patientId}">${esc(a.patientName)}</div>
+             <div class="text-[12px] md:text-[13px] text-ink-mute mt-0.5">${esc(a.patientPhone || '')}</div>
           </td>
-          <td class="px-6 py-4">${actionHtml}</td>
+          <td class="px-4 md:px-6 py-4">${actionHtml}</td>
         </tr>`;
     }).join('');
   }).join('');
@@ -254,10 +275,19 @@ function subscribe() {
 function wireNavButtons() {
   const prev = $('#day-prev');
   const next = $('#day-next');
+  const todayMobile = $('#day-today-mobile');
+  const prevDesktop = $('#day-prev-desktop');
+  const nextDesktop = $('#day-next-desktop');
   const today = $('#day-today');
-  
-  if (prev) prev.addEventListener('click', () => goDate(addDays(state.dateISO, -1)));
-  if (next) next.addEventListener('click', () => goDate(addDays(state.dateISO, 1)));
+
+  // Mobile: Yesterday / Today / Tomorrow
+  if (prev) prev.addEventListener('click', () => goDate(addDays(todayISO(), -1)));
+  if (todayMobile) todayMobile.addEventListener('click', () => goDate(todayISO()));
+  if (next) next.addEventListener('click', () => goDate(addDays(todayISO(), 1)));
+
+  // Desktop: Day-by-day arrows
+  if (prevDesktop) prevDesktop.addEventListener('click', () => goDate(addDays(state.dateISO, -1)));
+  if (nextDesktop) nextDesktop.addEventListener('click', () => goDate(addDays(state.dateISO, 1)));
   if (today) today.addEventListener('click', () => goDate(todayISO()));
 }
 

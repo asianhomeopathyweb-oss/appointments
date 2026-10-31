@@ -26,8 +26,6 @@ import { writeAudit } from "./lib/activity-log.js";
 /**
  * All appointments for a clinic on a given date.
  * Sorted by slot, then by order (for double-booked slots).
- * Returns a promise resolving to an array of appointment objects
- * (each includes its Firestore id).
  */
 export async function listForDay(clinicId, dateISO) {
   const q = query(
@@ -44,8 +42,6 @@ export async function listForDay(clinicId, dateISO) {
 
 /**
  * Subscribe to appointments for a clinic + date.
- * Calls onData(appointments) every time the data changes.
- * Returns an unsubscribe function.
  */
 export function subscribeForDay(clinicId, dateISO, onData, onError) {
   const q = query(
@@ -71,17 +67,21 @@ export function subscribeForDay(clinicId, dateISO, onData, onError) {
 
 /**
  * All appointments for a patient, newest first.
+ * 
+ * FIX: Only queries by clinicId (single field), then filters by
+ * patientId in JavaScript. This avoids the composite index requirement.
  */
 export async function listForPatient(clinicId, patientId) {
   const q = query(
     collection(db, "appointments"),
-    where("clinicId", "==", clinicId),
-    where("patientId", "==", patientId),
-    where("deleted", "==", false),
-    orderBy("date", "desc")
+    where("clinicId", "==", clinicId)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((a) => a.patientId === patientId)
+    .filter((a) => a.deleted !== true)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 
 /**
@@ -95,15 +95,6 @@ export async function get(id) {
 
 /**
  * Create a new appointment.
- * payload should contain: clinicId, patientId, patientName,
- * patientPhone, date, slot, durationSlots, type, mode, order,
- * doctorId, status, source, cancelledReason, notes.
- *
- * Server-stamped fields (createdAt, createdBy, updatedAt) and the
- * deleted flag are added automatically.
- *
- * Writes an audit entry after success. The audit failure is
- * non-fatal: the appointment still exists.
  */
 export async function create(payload) {
   const m = me();
@@ -129,8 +120,6 @@ export async function create(payload) {
 
 /**
  * Change status of an appointment.
- * If status is "cancelled", cancelledReason should be one of:
- * "patient", "no_show", "clinic", "rescheduled", or "".
  */
 export async function updateStatus(id, status, cancelledReason) {
   const patch = {

@@ -2,8 +2,8 @@
 // Patients
 //
 // Firestore wrapper for the shared patients collection.
-// Appointments creates patients; BillBook also reads them.
-// The rule: Appointments creates only, never edits or deletes.
+// Appointments creates and edits patients; BillBook also reads
+// and edits them. Appointments never deletes.
 //
 // Search approach: fetch all patients for the clinic, filter
 // in JavaScript. Avoids composite indexes and works even if
@@ -18,6 +18,7 @@ import {
   doc,
   getDoc,
   addDoc,
+  updateDoc,
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from './lib/firebase-init.js';
@@ -80,11 +81,23 @@ export async function findExact(clinicId, nameLower) {
 }
 
 /**
- * Create a new patient with the minimum fields the appointment
- * flow needs. Other fields (age, sex, address, referral) are left
- * empty and can be filled in later via BillBook.
+ * Create a new patient.
+ *
+ * Required: clinicId, name.
+ * Optional: phone, age, sex, address, referral.
+ *
+ * Fields not provided are stored as empty/null so the record
+ * matches the shape of BillBook-created patients.
  */
-export async function create({ clinicId, name, phone }) {
+export async function create({
+  clinicId,
+  name,
+  phone,
+  age,
+  sex,
+  address,
+  referral
+}) {
   const m = me();
   const trimmedName = (name || '').trim();
   const trimmedPhone = (phone || '').trim();
@@ -94,10 +107,10 @@ export async function create({ clinicId, name, phone }) {
     name_lower: trimmedName.toLowerCase(),
     phone: trimmedPhone,
     clinicId,
-    age: null,
-    sex: '',
-    address: '',
-    referral: '',
+    age: (age === null || age === undefined || age === '') ? null : Number(age),
+    sex: sex || '',
+    address: (address || '').trim(),
+    referral: referral || '',
     created_at: serverTimestamp(),
     createdBy: m.uid,
     created_via: 'appointments',
@@ -107,4 +120,52 @@ export async function create({ clinicId, name, phone }) {
   const ref = await addDoc(collection(db, 'patients'), record);
   try { await writeAudit('patient_created', ref.id); } catch {}
   return ref.id;
+}
+
+/**
+ * Update an existing patient.
+ *
+ * Pass only the fields you want to change. This function will:
+ *   - Trim string fields
+ *   - Recompute name_lower if name is provided
+ *   - Stamp updated_at, updatedBy, updated_via
+ *   - Write an audit log entry
+ *
+ * It does NOT touch fields you don't pass in. So if BillBook
+ * has a field that Appointments doesn't know about, it stays.
+ */
+export async function updatePatient(id, changes) {
+  if (!id) throw new Error('updatePatient: id required');
+  if (!changes || typeof changes !== 'object') {
+    throw new Error('updatePatient: changes object required');
+  }
+
+  const m = me();
+  const patch = { ...changes };
+
+  // Normalize string fields if present
+  if (typeof patch.name === 'string') {
+    patch.name = patch.name.trim();
+    patch.name_lower = patch.name.toLowerCase();
+  }
+  if (typeof patch.phone === 'string') {
+    patch.phone = patch.phone.trim();
+  }
+  if (typeof patch.address === 'string') {
+    patch.address = patch.address.trim();
+  }
+  if (patch.age === '' || patch.age === undefined) {
+    patch.age = null;
+  } else if (patch.age !== null && patch.age !== undefined) {
+    patch.age = Number(patch.age);
+  }
+
+  // Stamp the update
+  patch.updated_at = serverTimestamp();
+  patch.updatedBy = m.uid;
+  patch.updated_via = 'appointments';
+
+  await updateDoc(doc(db, 'patients', id), patch);
+  try { await writeAudit('patient_updated', id); } catch {}
+  return true;
 }

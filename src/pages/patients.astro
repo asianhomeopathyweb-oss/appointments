@@ -8,7 +8,10 @@ import AppLayout from '../layouts/AppLayout.astro';
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
       <div>
         <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Directory</div>
-        <div class="text-[24px] font-bold text-ink tracking-tight">Patients</div>
+        <div class="text-[24px] font-bold text-ink tracking-tight flex items-center gap-3">
+          Patients
+          <span id="pt-count" class="text-[12px] font-bold text-accent bg-accent-soft px-2 py-0.5 rounded-full hidden">0</span>
+        </div>
       </div>
       <button id="pt-new" type="button"
         class="h-10 px-5 rounded-xl bg-ink hover:bg-ink/90 text-white text-[13px] font-bold transition-colors shadow-sm flex items-center gap-2">
@@ -26,22 +29,28 @@ import AppLayout from '../layouts/AppLayout.astro';
     </div>
 
     <!-- List Container -->
-    <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline">
-      <div id="pt-list" class="divide-y divide-hairline">
+    <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline flex flex-col">
+      <div id="pt-list" class="divide-y divide-hairline flex-1">
         <!-- Filled by JS -->
+      </div>
+      <!-- Load More Button -->
+      <div id="pt-load-more" class="hidden p-4 border-t border-hairline bg-surface-hover/30 text-center">
+        <button id="pt-load-more-btn" class="h-10 px-6 rounded-xl bg-white border border-hairline text-[13px] font-bold text-ink hover:border-accent shadow-sm transition-colors">
+          Load More Patients
+        </button>
       </div>
     </div>
 
   </div>
 
-  <!-- New patient modal -->
-  <div id="np-backdrop" hidden class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"></div>
+  <!-- New patient modal (Full details) -->
+  <div id="np-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"></div>
   
-  <div id="np-modal" hidden
-    class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(94vw,460px)]
-           bg-white rounded-2xl shadow-xl border border-hairline overflow-hidden">
+  <div id="np-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:w-[min(94vw,460px)]">
     
-    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 flex items-center justify-between">
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 flex items-center justify-between shrink-0">
       <div class="text-[16px] font-bold text-ink">Add New Patient</div>
       <button id="np-close" type="button" aria-label="Close"
         class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute">
@@ -49,38 +58,89 @@ import AppLayout from '../layouts/AppLayout.astro';
       </button>
     </div>
     
-    <div class="p-5 space-y-4">
+    <div class="p-5 space-y-4 overflow-y-auto flex-1">
+      
+      <!-- Name -->
       <div>
-        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Full Name</label>
-        <input id="np-name" type="text" autocomplete="off" placeholder="e.g. Ramamurthy T"
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Full Name <span class="text-red-500">*</span></label>
+        <input id="np-name" type="text" required autocomplete="off" placeholder="e.g. Ramamurthy T"
           class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
       </div>
+
+      <!-- Phone -->
       <div>
-        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Phone Number</label>
-        <input id="np-phone" type="tel" inputmode="tel" autocomplete="off" placeholder="10-digit mobile number"
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Phone Number <span class="text-red-500">*</span></label>
+        <input id="np-phone" type="tel" required inputmode="tel" autocomplete="off" placeholder="10-digit mobile number"
           class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
       </div>
+
+      <!-- Age & Sex -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Age</label>
+          <div class="flex gap-1">
+            <input id="np-age" type="number" min="0" placeholder="0"
+              class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+            <select id="np-age-unit" class="w-[70px] h-11 px-1 rounded-xl border border-hairline bg-surface text-[12px] focus:outline-none focus:border-accent transition-all">
+              <option value="years">Yrs</option>
+              <option value="months">Mos</option>
+              <option value="days">Days</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Sex</label>
+          <select id="np-sex"
+            class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Address</label>
+        <input id="np-address" type="text" autocomplete="off" placeholder="Dharwad"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+      </div>
+
+      <!-- Referral -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Referral</label>
+        <select id="np-referral"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+          <option value="Google">Google</option>
+          <option value="Website">Website</option>
+          <option value="Referral">Referral</option>
+          <option value="Direct">Direct</option>
+        </select>
+      </div>
+
     </div>
     
-    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3">
+    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3 shrink-0 pb-[env(safe-area-inset-bottom,20px)]">
       <button id="np-cancel" type="button"
-        class="flex-1 h-10 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
+        class="flex-1 h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
       <button id="np-save" type="button" disabled
-        class="flex-1 h-10 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">Create Patient</button>
+        class="flex-1 h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">Create Patient</button>
     </div>
   </div>
 
   <script>
     import { requireAuth } from '../js/lib/auth-guards.js';
     import { getActiveClinicId } from '../js/lib/clinic-context.js';
-    import { searchByName, searchByPhone, create as createPatient, findExact } from '../js/patients.js';
+    import { create as createPatient, findExact } from '../js/patients.js';
     import { showToast } from '../js/lib/toast.js';
-
-    const $ = (sel) => document.querySelector(sel);
+    import { collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+    import { db } from '../js/lib/firebase-init.js';
 
     const state = {
       clinicId: null,
-      results: [],
+      allPatients: [],
+      filtered: [],
+      displayedCount: 50,
       saving: false
     };
 
@@ -90,25 +150,23 @@ import AppLayout from '../layouts/AppLayout.astro';
         .split('"').join('&quot;').split("'").join('&#39;');
     }
 
+    function updateCount() {
+      const countEl = document.getElementById('pt-count');
+      if (countEl) {
+        countEl.textContent = state.filtered.length;
+        countEl.classList.remove('hidden');
+      }
+    }
+
     function render() {
-      const root = $('#pt-list');
+      const root = document.getElementById('pt-list');
+      const loadMoreWrap = document.getElementById('pt-load-more');
       if (!root) return;
 
-      const q = $('#pt-search').value.trim();
-      
-      if (q.length < 2) {
-        root.innerHTML = `
-          <div class="p-16 flex flex-col items-center justify-center text-center">
-            <div class="w-16 h-16 bg-surface-hover rounded-full flex items-center justify-center mb-4">
-               <i class="bi bi-search text-[24px] text-ink-faint"></i>
-            </div>
-            <div class="text-[15px] font-bold text-ink mb-1">Search the directory</div>
-            <div class="text-[13px] text-ink-mute max-w-[250px]">Type at least 2 characters to search by patient name or phone number.</div>
-          </div>`;
-        return;
-      }
+      const searchInput = document.getElementById('pt-search');
+      const q = searchInput ? searchInput.value.trim() : '';
 
-      if (state.results.length === 0) {
+      if (state.filtered.length === 0 && q.length > 0) {
         root.innerHTML = `
           <div class="p-16 flex flex-col items-center justify-center text-center">
             <div class="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mb-4">
@@ -118,10 +176,13 @@ import AppLayout from '../layouts/AppLayout.astro';
             <div class="text-[13px] text-ink-mute max-w-[250px] mb-4">We couldn't find anyone matching "${esc(q)}".</div>
             <button onclick="document.getElementById('pt-new').click()" class="h-9 px-4 rounded-lg bg-accent text-white text-[13px] font-bold shadow-sm hover:bg-accent-hover transition-colors">Create New Patient</button>
           </div>`;
+        if (loadMoreWrap) loadMoreWrap.classList.add('hidden');
         return;
       }
 
-      root.innerHTML = state.results.map((p) => `
+      const toRender = state.filtered.slice(0, state.displayedCount);
+
+      root.innerHTML = toRender.map((p) => `
         <div data-pid="${esc(p.id)}"
           class="flex items-center gap-4 px-4 md:px-6 py-4 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline last:border-b-0">
           
@@ -144,60 +205,152 @@ import AppLayout from '../layouts/AppLayout.astro';
           location.href = `/patient?id=${encodeURIComponent(el.getAttribute('data-pid'))}`;
         });
       });
+
+      if (loadMoreWrap) {
+        if (state.filtered.length > state.displayedCount) {
+          loadMoreWrap.classList.remove('hidden');
+        } else {
+          loadMoreWrap.classList.add('hidden');
+        }
+      }
     }
 
-    async function runSearch(q) {
+    async function loadAllPatients() {
       try {
-        const byName = await searchByName(state.clinicId, q, 20);
-        const byPhone = /^[0-9+ -]{4,}$/.test(q) ? await searchByPhone(state.clinicId, q) : [];
-        const merged = [];
-        const seen = new Set();
-        for (const p of [...byName, ...byPhone]) {
-          if (seen.has(p.id)) continue;
-          seen.add(p.id);
-          merged.push(p);
-        }
-        merged.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        state.results = merged;
+        const q = query(collection(db, 'patients'), where('clinicId', '==', state.clinicId));
+        const snap = await getDocs(q);
+        
+        state.allPatients = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(p => p.deleted !== true)
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          
+        state.filtered = state.allPatients;
+        state.displayedCount = 50;
+        updateCount();
+        render();
       } catch (err) {
-        state.results = [];
+        showToast('Could not load patients', 'error');
       }
+    }
+
+    function runSearch(q) {
+      const lowerQ = q.toLowerCase();
+      state.filtered = state.allPatients.filter(p => {
+        const nameMatch = (p.name || '').toLowerCase().includes(lowerQ);
+        const phoneMatch = (p.phone || '').includes(lowerQ);
+        return nameMatch || phoneMatch;
+      });
+      state.displayedCount = 50;
+      updateCount();
       render();
     }
 
     function wireSearch() {
+      const searchInput = document.getElementById('pt-search');
+      if (!searchInput) return;
+      
       let timer = null;
-      $('#pt-search').addEventListener('input', (e) => {
+      searchInput.addEventListener('input', (e) => {
         clearTimeout(timer);
         const q = e.target.value.trim();
-        if (q.length < 2) { state.results = []; render(); return; }
+        
+        if (q.length === 0) {
+          state.filtered = state.allPatients;
+          state.displayedCount = 50;
+          updateCount();
+          render();
+          return;
+        }
+        
         timer = setTimeout(() => runSearch(q), 250);
       });
     }
 
+    function wirePagination() {
+      const btn = document.getElementById('pt-load-more-btn');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          state.displayedCount += 50;
+          render();
+        });
+      }
+    }
+
+    // ---------- MODAL LOGIC ----------
     function openModal() {
-      $('#np-backdrop').hidden = false;
-      $('#np-modal').hidden = false;
-      $('#np-name').value = '';
-      $('#np-phone').value = '';
-      $('#np-save').disabled = true;
-      setTimeout(() => $('#np-name').focus(), 50);
+      const backdrop = document.getElementById('np-backdrop');
+      const modal = document.getElementById('np-modal');
+      const name = document.getElementById('np-name');
+      const phone = document.getElementById('np-phone');
+      const age = document.getElementById('np-age');
+      const ageUnit = document.getElementById('np-age-unit');
+      const sex = document.getElementById('np-sex');
+      const address = document.getElementById('np-address');
+      const referral = document.getElementById('np-referral');
+      const saveBtn = document.getElementById('np-save');
+
+      if (name) name.value = '';
+      if (phone) phone.value = '';
+      if (age) age.value = '';
+      if (ageUnit) ageUnit.value = 'years';
+      if (sex) sex.value = 'Male';
+      if (address) address.value = '';
+      if (referral) referral.value = 'Google';
+      if (saveBtn) saveBtn.disabled = true;
+
+      if (backdrop) backdrop.classList.remove('hidden');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+      
+      setTimeout(() => { if (name) name.focus(); }, 100);
     }
 
     function closeModal() {
-      $('#np-backdrop').hidden = true;
-      $('#np-modal').hidden = true;
+      const backdrop = document.getElementById('np-backdrop');
+      const modal = document.getElementById('np-modal');
+      if (backdrop) backdrop.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
     }
 
     function updateSaveState() {
-      const name = $('#np-name').value.trim();
-      $('#np-save').disabled = !name || state.saving;
+      const name = document.getElementById('np-name');
+      const phone = document.getElementById('np-phone');
+      const saveBtn = document.getElementById('np-save');
+      if (!name || !phone || !saveBtn) return;
+      saveBtn.disabled = !name.value.trim() || !phone.value.trim() || state.saving;
     }
 
     async function saveNew() {
       if (state.saving) return;
-      const name = $('#np-name').value.trim();
-      const phone = $('#np-phone').value.trim();
+      
+      const nameEl = document.getElementById('np-name');
+      const phoneEl = document.getElementById('np-phone');
+      const ageEl = document.getElementById('np-age');
+      const ageUnitEl = document.getElementById('np-age-unit');
+      const sexEl = document.getElementById('np-sex');
+      const addressEl = document.getElementById('np-address');
+      const referralEl = document.getElementById('np-referral');
+      const saveBtn = document.getElementById('np-save');
+
+      if (!nameEl || !phoneEl) return;
+
+      const name = nameEl.value.trim();
+      const phone = phoneEl.value.trim();
+      if (!name || !phone) return;
+
+      let finalAge = ageEl ? ageEl.value : '';
+      const unit = ageUnitEl ? ageUnitEl.value : 'years';
+      if (finalAge) {
+        finalAge = Number(finalAge);
+        if (unit === 'months') finalAge = Math.round(finalAge / 12);
+        if (unit === 'days') finalAge = Math.round(finalAge / 365);
+      }
 
       try {
         const existing = await findExact(state.clinicId, name.toLowerCase());
@@ -216,36 +369,71 @@ import AppLayout from '../layouts/AppLayout.astro';
       } catch (err) {}
 
       state.saving = true;
-      $('#np-save').textContent = 'Creating...';
-      updateSaveState();
-      
+      if (saveBtn) {
+        saveBtn.textContent = 'Creating...';
+        saveBtn.disabled = true;
+      }
+
       try {
-        const id = await createPatient({ clinicId: state.clinicId, name, phone });
+        const id = await createPatient({
+          clinicId: state.clinicId,
+          name: name,
+          phone: phone,
+          age: finalAge || null,
+          sex: sexEl ? sexEl.value : '',
+          address: addressEl ? addressEl.value.trim() : '',
+          referral: referralEl ? referralEl.value : ''
+        });
         showToast('Patient added');
         setTimeout(() => { location.href = `/patient?id=${encodeURIComponent(id)}`; }, 400);
       } catch (err) {
         showToast('Could not add patient', 'error');
         state.saving = false;
-        $('#np-save').textContent = 'Create Patient';
-        updateSaveState();
+        if (saveBtn) {
+          saveBtn.textContent = 'Create Patient';
+          updateSaveState();
+        }
       }
     }
 
     function wireModal() {
-      $('#pt-new').addEventListener('click', openModal);
-      $('#np-close').addEventListener('click', closeModal);
-      $('#np-cancel').addEventListener('click', closeModal);
-      $('#np-backdrop').addEventListener('click', closeModal);
-      $('#np-name').addEventListener('input', updateSaveState);
-      $('#np-save').addEventListener('click', saveNew);
+      const ptNew = document.getElementById('pt-new');
+      const npClose = document.getElementById('np-close');
+      const npCancel = document.getElementById('np-cancel');
+      const npBackdrop = document.getElementById('np-backdrop');
+      const npName = document.getElementById('np-name');
+      const npPhone = document.getElementById('np-phone');
+      const npSave = document.getElementById('np-save');
+
+      if (ptNew) ptNew.addEventListener('click', openModal);
+      if (npClose) npClose.addEventListener('click', closeModal);
+      if (npCancel) npCancel.addEventListener('click', closeModal);
+      if (npBackdrop) npBackdrop.addEventListener('click', closeModal);
+      
+      if (npName) {
+        npName.addEventListener('input', (e) => {
+          const v = e.target.value;
+          const next = v.replace(/(^|\s)([a-z])/g, (m, pre, ch) => pre + ch.toUpperCase());
+          if (next !== v) {
+            const pos = e.target.selectionStart;
+            e.target.value = next;
+            try { e.target.setSelectionRange(pos, pos); } catch {}
+          }
+          updateSaveState();
+        });
+      }
+      if (npPhone) npPhone.addEventListener('input', updateSaveState);
+      
+      if (npSave) npSave.addEventListener('click', saveNew);
     }
 
     (async () => {
       await requireAuth();
       state.clinicId = getActiveClinicId();
       wireSearch();
+      wirePagination();
       wireModal();
-      render();
+      await loadAllPatients();
     })();
   </script>
 </AppLayout>

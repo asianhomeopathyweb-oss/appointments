@@ -241,6 +241,7 @@ async function doFollowupSave() {
     dueDate = intervalToDate(state.appointment.date, days);
   }
 
+  // Bulletproof warning check
   if (!dueDate && state.pendingFollowup) {
     const proceed = confirm(
       `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`

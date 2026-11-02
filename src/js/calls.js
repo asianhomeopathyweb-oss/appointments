@@ -136,3 +136,36 @@ export async function addNote(id, note) {
     history: arrayUnion(entry)
   });
 }
+
+// ============================================================
+// NEW: Merge Problem Calls + Scheduled Phone Appointments
+// ============================================================
+
+export async function listMergedPending(clinicId) {
+  // 1. Fetch Problem Calls
+  const callsAll = await fetchAll(clinicId);
+  const problemCalls = callsAll
+    .filter((x) => x.status === 'pending')
+    .map((x) => ({ ...x, _type: 'problem' }));
+
+  // 2. Fetch Scheduled Phone Appointments
+  const qAppts = query(
+    collection(db, 'appointments'),
+    where('clinicId', '==', clinicId)
+  );
+  const snapAppts = await getDocs(qAppts);
+  const phoneAppts = snapAppts.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((x) => x.deleted !== true && x.mode === 'call' && x.status === 'booked')
+    .map((x) => ({ ...x, _type: 'scheduled' }));
+
+  // 3. Merge and sort by createdAt (oldest first - continuous To-Do list)
+  const merged = [...problemCalls, ...phoneAppts];
+  merged.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0;
+    const bTime = b.createdAt?.toMillis?.() || 0;
+    return aTime - bTime;
+  });
+  
+  return merged;
+}

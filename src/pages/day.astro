@@ -2,11 +2,10 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Day">
-  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col h-[calc(100vh-52px)] bg-surface overflow-hidden">
+  <div class="w-full max-w-[1600px] mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col h-[calc(100vh-52px)] bg-surface overflow-hidden">
 
     <!-- Header (Shared Mobile & Desktop) -->
     <div class="flex flex-col gap-3 mb-4 md:mb-6 shrink-0">
-      
       <!-- Date Strip -->
       <div class="flex items-center gap-1.5 md:gap-2 w-full">
         <button id="day-prev" class="w-8 h-8 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
@@ -26,6 +25,12 @@ import AppLayout from '../layouts/AppLayout.astro';
           </button>
           <input type="date" id="desktop-date-picker-input" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" tabindex="-1" />
         </div>
+
+        <!-- Quick Add Call Button -->
+        <button id="quick-add-call-btn" class="h-8 md:h-10 shrink-0 px-3 md:px-4 rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all flex items-center justify-center gap-1.5 ml-1">
+          <i class="bi bi-telephone-plus text-[14px] md:text-[16px]"></i>
+          <span class="hidden md:inline text-[12px] md:text-[13px] font-bold">Call</span>
+        </button>
       </div>
 
       <!-- Date Title -->
@@ -38,47 +43,130 @@ import AppLayout from '../layouts/AppLayout.astro';
       </div>
     </div>
 
-    <!-- Table / List Container -->
-    <div class="flex-1 bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden flex flex-col">
-      <div class="overflow-x-auto overflow-y-auto flex-1">
-        
-        <!-- DESKTOP TABLE (Hidden on Mobile) -->
-        <table class="hidden md:table w-full text-left border-collapse">
-          <thead class="sticky top-0 bg-surface-hover z-10 border-b border-hairline">
-            <tr>
-              <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[140px] md:w-[200px]">Time</th>
-              <th class="hidden md:table-cell px-2 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[110px]">Type</th>
-              <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase">Patient</th>
-              <th class="hidden md:table-cell px-4 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[120px]">Phone</th>
-              <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="day-grid" class="divide-y divide-hairline"></tbody>
-        </table>
+    <!-- Main Workspace -->
+    <div class="flex flex-col md:flex-row gap-4 md:gap-6 flex-1 min-h-0">
+      
+      <!-- LEFT: Schedule Table (Takes remaining width) -->
+      <div class="flex-1 bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden flex flex-col">
+        <div class="overflow-x-auto overflow-y-auto flex-1">
+          
+          <table class="hidden md:table w-full text-left border-collapse">
+            <thead class="sticky top-0 bg-surface-hover z-10 border-b border-hairline">
+              <tr>
+                <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[140px] md:w-[160px]">Time</th>
+                <th class="hidden md:table-cell px-2 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[100px]">Type</th>
+                <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase">Patient</th>
+                <th class="hidden md:table-cell px-4 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[110px]">Phone</th>
+                <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase text-right w-[260px]">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="day-grid" class="divide-y divide-hairline"></tbody>
+          </table>
 
-        <!-- MOBILE LIST (Hidden on Desktop) -->
-        <div class="md:hidden flex flex-col w-full">
-          <div class="sticky top-0 bg-surface-hover z-10 border-b border-hairline flex items-center px-4 py-3 gap-3">
-            <div class="w-[60px] shrink-0 text-[10px] font-bold tracking-widest text-ink-mute uppercase">Time</div>
-            <div class="flex-1 text-[10px] font-bold tracking-widest text-ink-mute uppercase">Patient</div>
-            <div class="shrink-0 text-right text-[10px] font-bold tracking-widest text-ink-mute uppercase">Type</div>
+          <div class="md:hidden flex flex-col w-full">
+            <div class="sticky top-0 bg-surface-hover z-10 border-b border-hairline flex items-center px-4 py-3 gap-3">
+              <div class="w-[60px] shrink-0 text-[10px] font-bold tracking-widest text-ink-mute uppercase">Time</div>
+              <div class="flex-1 text-[10px] font-bold tracking-widest text-ink-mute uppercase">Patient</div>
+              <div class="shrink-0 text-right text-[10px] font-bold tracking-widest text-ink-mute uppercase">Type</div>
+            </div>
+            <div id="day-mobile-list" class="divide-y divide-hairline"></div>
           </div>
-          <div id="day-mobile-list" class="divide-y divide-hairline"></div>
-        </div>
 
+        </div>
       </div>
+
+      <!-- RIGHT: Calls Panel (Desktop Only) -->
+      <div class="hidden md:flex w-[300px] shrink-0 flex-col bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden">
+        <div class="border-b border-hairline bg-surface-hover/30 shrink-0 flex items-center justify-between px-4 py-3">
+          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase">Pending Calls</div>
+          <div id="calls-panel-count" class="text-[11px] font-bold text-accent bg-accent-soft px-2 py-0.5 rounded-full hidden">0</div>
+        </div>
+        <div id="day-calls-list" class="flex-1 overflow-y-auto divide-y divide-hairline/50">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
     </div>
 
   </div>
 
-  <!-- ROW ACTION MODAL -->
-  <div id="ra-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+  <!-- ========================================== -->
+  <!-- MODALS -->
+  <!-- ========================================== -->
 
+  <!-- 1. Quick Add Call Modal -->
+  <div id="qc-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+  <div id="qc-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+           md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0 flex items-center justify-between">
+      <div class="text-[16px] font-bold text-ink">Add Call</div>
+      <button id="qc-close" type="button" class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute shrink-0">
+        <i class="bi bi-x-lg text-[16px]"></i>
+      </button>
+    </div>
+    <div class="p-5">
+      <div class="mb-3">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Patient</label>
+        <input id="qc-name" type="text" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" placeholder="Search patient..." />
+        <div id="qc-results" class="mt-1 rounded-xl border border-hairline bg-white overflow-hidden max-h-[150px] overflow-y-auto empty:hidden z-10 absolute w-[calc(100%-40px)] shadow-md"></div>
+      </div>
+      <div class="mb-3">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Phone Number</label>
+        <input id="qc-phone" type="tel" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" placeholder="Phone number" />
+      </div>
+      <div class="mb-4">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Reason</label>
+        <input id="qc-reason" type="text" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" placeholder="e.g. Wants home visit" />
+      </div>
+      <button id="qc-save" type="button" class="w-full h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors">Save Call</button>
+    </div>
+  </div>
+
+  <!-- 2. Call Action Modal (For Right Panel) -->
+  <div id="ca-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+  <div id="ca-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+           md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
+    
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <button id="ca-name" class="text-[16px] font-bold text-ink hover:underline text-left truncate w-full">Patient Name</button>
+          <div id="ca-reason" class="text-[12px] text-ink-mute mt-0.5">Reason</div>
+          <div class="flex gap-1 mt-1.5">
+            <span id="ca-type" class="px-2 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase">Type</span>
+          </div>
+        </div>
+        <button id="ca-close" type="button" class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute shrink-0">
+          <i class="bi bi-x-lg text-[16px]"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="ca-panel-actions" class="p-5 flex flex-col gap-3">
+      <button id="ca-btn-complete" type="button" class="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-check-circle-fill"></i> Mark Complete
+      </button>
+      <button id="ca-btn-convert" type="button" class="w-full h-12 rounded-xl bg-accent hover:bg-accent-hover text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-calendar-plus"></i> Convert to Appointment
+      </button>
+      <button id="ca-btn-cancel" type="button" class="w-full h-12 rounded-xl bg-white hover:bg-red-50 text-red-500 border border-hairline hover:border-red-200 text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-x-circle"></i> Cancel
+      </button>
+    </div>
+
+  </div>
+
+  <!-- 3. Existing Appointment Action Modal (Same as before) -->
+  <div id="ra-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
   <div id="ra-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
            bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
            md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
            md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
-
+    <!-- Keep all your existing #ra- content exactly as it is -->
     <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0">
       <div class="flex items-start justify-between gap-3">
         <div class="flex-1 min-w-0">
@@ -94,7 +182,6 @@ import AppLayout from '../layouts/AppLayout.astro';
         </button>
       </div>
     </div>
-
     <div id="ra-panel-actions" class="p-5 flex flex-col gap-3">
       <button id="ra-btn-complete" type="button" class="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
         <i class="bi bi-check-circle-fill"></i> Complete
@@ -106,7 +193,6 @@ import AppLayout from '../layouts/AppLayout.astro';
         <i class="bi bi-x-circle"></i> Cancel
       </button>
     </div>
-
     <div id="ra-panel-followup" class="hidden p-5">
       <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Schedule next follow-up</div>
       <div class="mb-3">
@@ -133,7 +219,6 @@ import AppLayout from '../layouts/AppLayout.astro';
         <button id="ra-followup-save" type="button" class="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold">Mark Complete</button>
       </div>
     </div>
-
     <div id="ra-panel-reschedule" class="hidden p-5">
       <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Reschedule Appointment</div>
       <div class="mb-3">
@@ -149,7 +234,6 @@ import AppLayout from '../layouts/AppLayout.astro';
         <button id="ra-res-save" type="button" class="flex-1 h-10 rounded-xl bg-orange-400 hover:bg-orange-500 text-white text-[13px] font-bold">Move</button>
       </div>
     </div>
-
     <div id="ra-panel-cancel" class="hidden p-5">
       <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Why cancel?</div>
       <div class="grid grid-cols-2 gap-2 mb-4">
@@ -160,7 +244,6 @@ import AppLayout from '../layouts/AppLayout.astro';
       </div>
       <button id="ra-cancel-back" type="button" class="text-[12.5px] font-semibold text-ink-mute hover:text-ink transition-colors">← Back to actions</button>
     </div>
-
   </div>
 
   <script>

@@ -2,18 +2,15 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Dashboard">
-  <div class="w-full max-w-[1400px] mx-auto px-0 md:px-8 py-0 md:py-6 flex flex-col h-[calc(100vh-52px)] md:h-full bg-surface overflow-hidden">
+  <div class="w-full max-w-[1400px] mx-auto px-0 md:px-8 py-0 md:py-4 flex flex-col h-[calc(100vh-52px)] md:h-full bg-surface md:overflow-hidden overflow-y-auto">
 
-    <!-- Header (Compact on mobile) -->
-    <div class="flex flex-row items-center justify-between gap-4 mb-3 md:mb-6 shrink-0 px-4 md:px-0 pt-3 md:pt-0">
-      <div>
-        <div class="hidden md:block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Overview</div>
-        <div class="text-[20px] md:text-[24px] font-bold text-ink tracking-tight">Dashboard</div>
-      </div>
+    <!-- Header (Compact) -->
+    <div class="flex flex-row items-center justify-between gap-4 mb-3 shrink-0 px-4 md:px-0 pt-3 md:pt-0">
+      <div class="text-[22px] md:text-[24px] font-bold text-ink tracking-tight">Dashboard</div>
       
       <!-- Central Filter -->
       <div class="relative w-auto">
-        <select id="dash-filter" class="w-[140px] md:w-[200px] h-9 md:h-10 px-3 md:px-4 rounded-xl border border-hairline bg-white text-[12px] md:text-[13px] font-semibold text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all shadow-sm appearance-none cursor-pointer">
+        <select id="dash-filter" class="w-[140px] md:w-[180px] h-9 md:h-10 px-3 md:px-4 rounded-xl border border-hairline bg-white text-[12px] md:text-[13px] font-semibold text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all shadow-sm appearance-none cursor-pointer">
           <option value="today">Today</option>
           <option value="yesterday">Yesterday</option>
           <option value="tomorrow">Tomorrow</option>
@@ -40,79 +37,93 @@ import AppLayout from '../layouts/AppLayout.astro';
     </div>
 
     <!-- Main Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-0 md:gap-6 flex-1 min-h-0">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-0 md:gap-4 flex-1 min-h-0">
       
-      <!-- LEFT: Lists (No card on mobile, full height) -->
-      <div class="lg:col-span-5 flex flex-col bg-transparent lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-hairline overflow-hidden h-full">
+      <!-- LEFT: Appointments & Calls Lists -->
+      <div class="lg:col-span-8 flex flex-col md:flex-row gap-0 md:gap-4 md:overflow-hidden h-full">
         
-        <!-- Tabs (Hidden on mobile) -->
-        <div class="hidden lg:flex border-b border-hairline bg-surface-hover/30 shrink-0">
-          <button id="tab-appts" class="flex-1 py-3 text-[11px] font-bold tracking-widest text-ink uppercase border-b-2 border-accent transition-colors">Appointments</button>
-          <button id="tab-calls" class="flex-1 py-3 text-[11px] font-bold tracking-widest text-ink-mute uppercase border-b-2 border-transparent hover:text-ink transition-colors">Calls</button>
+        <!-- Appointments Column (Takes available space) -->
+        <div class="flex-1 flex flex-col bg-transparent lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-hairline md:overflow-hidden h-full">
+          <div class="hidden lg:flex border-b border-hairline bg-surface-hover/30 shrink-0">
+            <div class="flex-1 py-2.5 text-[11px] font-bold tracking-widest text-ink uppercase text-center">Appointments</div>
+          </div>
+          
+          <!-- Appointment List -->
+          <div id="dash-list" class="flex-1 md:overflow-y-auto divide-y divide-hairline lg:divide-hairline/50 bg-white lg:bg-transparent"></div>
+          
+          <!-- Mobile-only Calls Section -->
+          <div class="md:hidden mt-2">
+            <div class="px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-ink-mute bg-surface-hover border-y border-hairline">
+              Pending Calls
+            </div>
+            <div id="dash-mobile-calls" class="bg-white divide-y divide-hairline"></div>
+          </div>
         </div>
 
-        <!-- List Container -->
-        <div id="dash-list" class="flex-1 overflow-y-auto divide-y divide-hairline lg:divide-hairline/50 bg-white lg:bg-transparent">
-          <!-- Filled by JS -->
+        <!-- Desktop Calls Column -->
+        <div class="hidden md:flex w-[300px] shrink-0 flex-col bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden h-full">
+          <div class="border-b border-hairline bg-surface-hover/30 shrink-0">
+            <div class="py-2.5 text-[11px] font-bold tracking-widest text-ink uppercase text-center">Calls</div>
+          </div>
+          <div id="dash-calls-desktop" class="flex-1 overflow-y-auto divide-y divide-hairline/50"></div>
         </div>
+
       </div>
 
       <!-- RIGHT: Metrics & Charts (Hidden on Mobile) -->
-      <div class="hidden lg:flex lg:col-span-7 flex-col gap-4 md:gap-6 overflow-y-auto pr-1 pb-4">
+      <div class="hidden lg:flex lg:col-span-4 flex-col gap-3 md:gap-4 overflow-y-auto pr-1 pb-4">
         
         <!-- Metrics Grid -->
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between">
-            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-3">Total Appts</div>
-            <div id="stat-total" class="text-[28px] md:text-[32px] font-extrabold text-ink tracking-tight tnum leading-none">—</div>
+        <div class="grid grid-cols-2 gap-2 md:gap-3">
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between">
+            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-2">Total Appts</div>
+            <div id="stat-total" class="text-[26px] font-extrabold text-ink tracking-tight tnum leading-none">—</div>
           </div>
           
-          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between">
-            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-3">Seen</div>
-            <div id="stat-seen" class="text-[28px] md:text-[32px] font-extrabold text-emerald-600 tracking-tight tnum leading-none">—</div>
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between">
+            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-2">Seen</div>
+            <div id="stat-seen" class="text-[26px] font-extrabold text-emerald-600 tracking-tight tnum leading-none">—</div>
           </div>
 
-          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between">
-            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-3">New Pts</div>
-            <div id="stat-new" class="text-[28px] md:text-[32px] font-extrabold text-blue-600 tracking-tight tnum leading-none">—</div>
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between">
+            <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase mb-2">New Pts</div>
+            <div id="stat-new" class="text-[26px] font-extrabold text-blue-600 tracking-tight tnum leading-none">—</div>
           </div>
 
-          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between relative overflow-hidden">
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between relative overflow-hidden">
             <div class="absolute inset-0 bg-orange-50/50"></div>
             <div class="relative z-10">
-              <div class="text-[10px] font-bold tracking-widest text-orange-600 uppercase mb-3">Follow-ups</div>
-              <div id="stat-fu" class="text-[28px] md:text-[32px] font-extrabold text-orange-600 tracking-tight tnum leading-none">—</div>
+              <div class="text-[10px] font-bold tracking-widest text-orange-600 uppercase mb-2">Follow-ups</div>
+              <div id="stat-fu" class="text-[26px] font-extrabold text-orange-600 tracking-tight tnum leading-none">—</div>
             </div>
           </div>
 
-          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 md:p-5 flex flex-col justify-between relative overflow-hidden">
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between relative overflow-hidden col-span-2">
             <div class="absolute inset-0 bg-pink-50/50"></div>
             <div class="relative z-10">
-              <div class="text-[10px] font-bold tracking-widest text-pink-600 uppercase mb-3">Calls</div>
-              <div id="stat-calls" class="text-[28px] md:text-[32px] font-extrabold text-pink-600 tracking-tight tnum leading-none">—</div>
+              <div class="text-[10px] font-bold tracking-widest text-pink-600 uppercase mb-2">Calls</div>
+              <div id="stat-calls" class="text-[26px] font-extrabold text-pink-600 tracking-tight tnum leading-none">—</div>
             </div>
           </div>
-
-          <div class="hidden md:block bg-surface-hover/30 rounded-2xl border border-hairline border-dashed"></div>
         </div>
 
         <!-- Weekly Trend Chart -->
-        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 md:p-6">
-          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-5">Weekly Trend</div>
-          <div id="dash-trend" class="h-[120px] flex items-end justify-between gap-1 md:gap-2">
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4">
+          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-4">Weekly Trend</div>
+          <div id="dash-trend" class="h-[100px] flex items-end justify-between gap-1 md:gap-2">
             <!-- Filled by JS -->
           </div>
         </div>
 
         <!-- New vs Returning -->
-        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-5 md:p-6">
-          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-5">Patient Mix</div>
-          <div class="flex flex-col gap-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4">
+          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-4">Patient Mix</div>
+          <div class="flex flex-col gap-3">
             <div class="flex items-center justify-between text-[13px]">
               <span class="text-ink-mute font-medium">New Patients</span>
               <span id="mix-new" class="font-bold text-ink tnum">—</span>
             </div>
-            <div class="w-full h-3 bg-surface-hover rounded-full overflow-hidden flex">
+            <div class="w-full h-2.5 bg-surface-hover rounded-full overflow-hidden flex">
               <div id="mix-bar-new" class="h-full bg-blue-500 transition-all duration-500" style="width: 0%"></div>
               <div id="mix-bar-returning" class="h-full bg-accent transition-all duration-500" style="width: 0%"></div>
             </div>
@@ -121,19 +132,6 @@ import AppLayout from '../layouts/AppLayout.astro';
               <span id="mix-returning" class="font-bold text-ink tnum">—</span>
             </div>
           </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-          <a href="/book" class="h-12 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
-            <i class="bi bi-plus-lg"></i> Book Appointment
-          </a>
-          <a href="/followups" class="h-12 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
-            <i class="bi bi-arrow-repeat"></i> Follow-ups
-          </a>
-          <a href="/calls" class="h-12 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
-            <i class="bi bi-telephone"></i> Calls
-          </a>
         </div>
 
       </div>
@@ -155,10 +153,10 @@ import AppLayout from '../layouts/AppLayout.astro';
       clinicId: null,
       appointments: [],
       followUps: [],
-      calls: [],
+      calls: [],           // Problem calls
+      callAppts: [],       // Scheduled call-mode appointments
       patients: [],
-      currentRange: { start: '', end: '', label: 'Today' },
-      currentTab: 'appts'
+      currentRange: { start: '', end: '', label: 'Today' }
     };
 
     function getDateRange(filterVal) {
@@ -208,7 +206,10 @@ import AppLayout from '../layouts/AppLayout.astro';
           getDocs(query(collection(db, 'patients'), where('clinicId', '==', cId)))
         ]);
         
-        state.appointments = appts.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
+        const allAppts = appts.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
+        state.appointments = allAppts;
+        state.callAppts = allAppts.filter(x => x.mode === 'call');
+        
         state.followUps = fus.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
         state.calls = cls.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
         state.patients = pats.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
@@ -219,73 +220,124 @@ import AppLayout from '../layouts/AppLayout.astro';
       }
     }
 
-    function renderList() {
+    function renderAppointmentList() {
       const list = $('#dash-list');
       const { start, end } = state.currentRange;
       
-      if (state.currentTab === 'appts') {
-        const rangeAppts = state.appointments.filter(a => a.date >= start && a.date <= end);
-        
-        if (rangeAppts.length === 0) {
-          list.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No appointments in this range.</div>`;
-          return;
-        }
-        
-        rangeAppts.sort((a, b) => (a.date + a.slot).localeCompare(b.date + b.slot));
-        list.innerHTML = rangeAppts.map(a => `
-          <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='/appointment?id=${a.id}'">
-            <div class="w-[70px] shrink-0">
-              <div class="text-[12px] font-bold text-ink tnum">${fmtSlot(a.slot)}</div>
-              <div class="text-[10px] text-ink-faint tnum">${fmtDate(a.date)}</div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="text-[13.5px] font-semibold text-ink truncate">${esc(a.patientName)}</div>
-              <div class="flex gap-1 mt-0.5">
-                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${a.mode === 'call' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}">${a.mode || 'Visit'}</span>
-                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${a.status === 'seen' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-hover text-ink-mute'}">${a.status}</span>
-              </div>
+      const rangeAppts = state.appointments.filter(a => a.date >= start && a.date <= end);
+      
+      if (rangeAppts.length === 0) {
+        list.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No appointments in this range.</div>`;
+        return;
+      }
+      
+      rangeAppts.sort((a, b) => (a.date + a.slot).localeCompare(b.date + b.slot));
+      list.innerHTML = rangeAppts.map(a => `
+        <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='/appointment?id=${a.id}'">
+          <div class="w-[70px] shrink-0">
+            <div class="text-[12px] font-bold text-ink tnum">${fmtSlot(a.slot)}</div>
+            <div class="text-[10px] text-ink-faint tnum">${fmtDate(a.date)}</div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[13.5px] font-semibold text-ink truncate">${esc(a.patientName)}</div>
+            <div class="flex gap-1 mt-0.5">
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${a.mode === 'call' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}">${a.mode || 'Visit'}</span>
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${a.status === 'seen' ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-hover text-ink-mute'}">${a.status}</span>
             </div>
           </div>
-        `).join('');
+        </div>
+      `).join('');
+    }
+
+    function renderCallRows(targetEl, merged) {
+      targetEl.innerHTML = merged.map(item => {
+        const isProblem = item._type === 'problem';
         
-      } else {
-        // Render Calls
-        const rangeCalls = state.calls.filter(c => {
-          if (!c.createdAt) return false;
-          const cDate = new Date(c.createdAt.seconds * 1000);
-          const iso = cDate.toISOString().split('T')[0];
-          return iso >= start && iso <= end;
-        });
-        
-        if (rangeCalls.length === 0) {
-          list.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No calls in this range.</div>`;
-          return;
+        let timeStr, dateStr;
+        if (isProblem) {
+          const cDate = new Date(item.createdAt.seconds * 1000);
+          timeStr = `${String(cDate.getHours()).padStart(2,'0')}:${String(cDate.getMinutes()).padStart(2,'0')}`;
+          dateStr = `${String(cDate.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cDate.getMonth()]}`;
+        } else {
+          timeStr = fmtSlot(item.slot);
+          dateStr = fmtDate(item.date);
         }
         
-        rangeCalls.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+        const url = isProblem ? `/call?id=${item.id}` : `/appointment?id=${item.id}`;
         
-        list.innerHTML = rangeCalls.map(c => {
-          const cDate = new Date(c.createdAt.seconds * 1000);
-          const timeStr = `${String(cDate.getHours()).padStart(2,'0')}:${String(cDate.getMinutes()).padStart(2,'0')}`;
-          const dateStr = `${String(cDate.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cDate.getMonth()]}`;
-          
-          return `
-            <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='/call?id=${c.id}'">
-              <div class="w-[70px] shrink-0">
-                <div class="text-[12px] font-bold text-ink tnum">${timeStr}</div>
-                <div class="text-[10px] text-ink-faint tnum">${dateStr}</div>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-[13.5px] font-semibold text-ink truncate">${esc(c.patientName)}</div>
-                <div class="text-[11px] text-ink-mute truncate">${esc(c.reason || 'No reason')}</div>
-              </div>
-              <div class="shrink-0">
-                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${c.status === 'pending' ? 'bg-orange-100 text-orange-700' : 'bg-surface-hover text-ink-mute'}">${c.status}</span>
-              </div>
+        return `
+          <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='${url}'">
+            <div class="w-[70px] shrink-0">
+              <div class="text-[12px] font-bold text-ink tnum">${timeStr}</div>
+              <div class="text-[10px] text-ink-faint tnum">${dateStr}</div>
             </div>
-          `;
-        }).join('');
+            <div class="flex-1 min-w-0">
+              <div class="text-[13.5px] font-semibold text-ink truncate">${esc(item.patientName)}</div>
+              <div class="text-[11px] text-ink-mute truncate">${esc(isProblem ? item.reason || 'No reason' : 'Scheduled Call')}</div>
+            </div>
+            <div class="shrink-0">
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                isProblem ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'
+              }">${isProblem ? 'Problem' : 'Scheduled'}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderCallsFiltered() {
+      const targetEl = $('#dash-calls-desktop');
+      if (!targetEl) return;
+      
+      const { start, end } = state.currentRange;
+      
+      const rangeCalls = state.calls.filter(c => {
+        if (!c.createdAt) return false;
+        const cDate = new Date(c.createdAt.seconds * 1000);
+        const iso = cDate.toISOString().split('T')[0];
+        return iso >= start && iso <= end;
+      }).map(c => ({ ...c, _type: 'problem' }));
+
+      const rangeCallAppts = state.callAppts.filter(a => a.date >= start && a.date <= end)
+        .map(a => ({ ...a, _type: 'scheduled' }));
+
+      const merged = [...rangeCalls, ...rangeCallAppts];
+      
+      if (merged.length === 0) {
+        targetEl.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No calls in this range.</div>`;
+        return;
       }
+      
+      merged.sort((a, b) => {
+        const aTime = a.createdAt?.seconds || (a.date ? new Date(a.date).getTime()/1000 : 0);
+        const bTime = b.createdAt?.seconds || (b.date ? new Date(b.date).getTime()/1000 : 0);
+        return bTime - aTime;
+      });
+      
+      renderCallRows(targetEl, merged);
+    }
+
+    function renderCallsMobile() {
+      const targetEl = $('#dash-mobile-calls');
+      if (!targetEl) return;
+      
+      const pendingProblems = state.calls.filter(c => c.status === 'pending').map(c => ({ ...c, _type: 'problem' }));
+      const pendingScheduled = state.callAppts.filter(a => a.status === 'booked').map(a => ({ ...a, _type: 'scheduled' }));
+
+      const merged = [...pendingProblems, ...pendingScheduled];
+      
+      if (merged.length === 0) {
+        targetEl.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No pending calls.</div>`;
+        return;
+      }
+      
+      merged.sort((a, b) => {
+        const aTime = a.createdAt?.seconds || (a.date ? new Date(a.date).getTime()/1000 : 0);
+        const bTime = b.createdAt?.seconds || (b.date ? new Date(b.date).getTime()/1000 : 0);
+        return bTime - aTime;
+      });
+      
+      renderCallRows(targetEl, merged);
     }
 
     function render() {
@@ -301,21 +353,23 @@ import AppLayout from '../layouts/AppLayout.astro';
       
       const pendingFu = state.followUps.filter(f => f.dueDate >= start && f.dueDate <= end && f.status === 'pending').length;
       
-      const pendingCalls = state.calls.filter(c => {
+      const pendingCallsCount = state.calls.filter(c => {
         if (!c.createdAt || c.status !== 'pending') return false;
         const cDate = new Date(c.createdAt.seconds * 1000);
         const iso = cDate.toISOString().split('T')[0];
         return iso >= start && iso <= end;
-      }).length;
+      }).length + state.callAppts.filter(a => a.date >= start && a.date <= end && a.status === 'booked').length;
 
       $('#stat-total').textContent = total;
       $('#stat-seen').textContent = seen;
       $('#stat-new').textContent = newPts;
       $('#stat-fu').textContent = pendingFu;
-      $('#stat-calls').textContent = pendingCalls;
+      $('#stat-calls').textContent = pendingCallsCount;
 
       // 2. Lists
-      renderList();
+      renderAppointmentList();
+      renderCallsFiltered();
+      renderCallsMobile();
 
       // 3. Weekly Trend
       const trendEl = $('#dash-trend');
@@ -372,26 +426,6 @@ import AppLayout from '../layouts/AppLayout.astro';
         state.currentRange = getDateRange(filterEl.value);
         render();
       });
-
-      // Tabs (Desktop only)
-      const tabAppts = $('#tab-appts');
-      const tabCalls = $('#tab-calls');
-
-      if (tabAppts && tabCalls) {
-        tabAppts.addEventListener('click', () => {
-          state.currentTab = 'appts';
-          tabAppts.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink uppercase border-b-2 border-accent transition-colors';
-          tabCalls.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink-mute uppercase border-b-2 border-transparent hover:text-ink transition-colors';
-          renderList();
-        });
-
-        tabCalls.addEventListener('click', () => {
-          state.currentTab = 'calls';
-          tabCalls.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink uppercase border-b-2 border-accent transition-colors';
-          tabAppts.className = 'flex-1 py-3 text-[11px] font-bold tracking-widest text-ink-mute uppercase border-b-2 border-transparent hover:text-ink transition-colors';
-          renderList();
-        });
-      }
       
       state.currentRange = getDateRange('today');
       render();

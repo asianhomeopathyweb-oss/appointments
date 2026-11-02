@@ -2,14 +2,14 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Calls">
-  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
+  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-[calc(100vh-52px)] overflow-hidden bg-surface">
 
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 shrink-0">
       <div>
         <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Phone</div>
         <div class="flex items-center gap-3">
-          <div class="text-[22px] font-bold text-ink tracking-tight">Pending Calls</div>
+          <div class="text-[22px] font-bold text-ink tracking-tight">Pending Tasks</div>
           <div id="calls-sub" class="text-[12px] font-semibold text-accent bg-accent-soft px-2 py-0.5 rounded-full">—</div>
         </div>
       </div>
@@ -20,7 +20,7 @@ import AppLayout from '../layouts/AppLayout.astro';
     </div>
 
     <!-- List Container -->
-    <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline">
+    <div class="flex-1 bg-white rounded-2xl shadow-sm border border-hairline overflow-y-auto">
       <div id="calls-list" class="divide-y divide-hairline">
         <!-- Filled by JS -->
       </div>
@@ -35,7 +35,6 @@ import AppLayout from '../layouts/AppLayout.astro';
     class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(94vw,500px)]
            bg-white rounded-2xl shadow-xl border border-hairline overflow-hidden transform transition-all">
     
-    <!-- Modal Header -->
     <div class="px-5 py-4 border-b border-hairline flex items-center justify-between bg-surface-hover/30">
       <div class="text-[16px] font-bold text-ink">Add Call</div>
       <button id="newcall-close" type="button" aria-label="Close"
@@ -44,7 +43,6 @@ import AppLayout from '../layouts/AppLayout.astro';
       </button>
     </div>
     
-    <!-- Modal Body -->
     <div class="p-5 space-y-4">
       <div>
         <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Patient</label>
@@ -61,7 +59,6 @@ import AppLayout from '../layouts/AppLayout.astro';
       </div>
     </div>
     
-    <!-- Modal Footer -->
     <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3">
       <button id="newcall-cancel" type="button"
         class="flex-1 h-10 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
@@ -73,9 +70,10 @@ import AppLayout from '../layouts/AppLayout.astro';
   <script>
     import { requireAuth } from '../js/lib/auth-guards.js';
     import { getActiveClinicId } from '../js/lib/clinic-context.js';
-    import { listPending, create as createCall } from '../js/calls.js';
+    import { listMergedPending, create as createCall } from '../js/calls.js';
     import { searchByName, searchByPhone } from '../js/patients.js';
     import { showToast } from '../js/lib/toast.js';
+    import { esc } from '../js/lib/format.js';
 
     const $ = (sel) => document.querySelector(sel);
 
@@ -85,12 +83,6 @@ import AppLayout from '../layouts/AppLayout.astro';
       newCallPatient: null,
       saving: false
     };
-
-    function esc(s) {
-      return String(s == null ? '' : s)
-        .split('&').join('&amp;').split('<').join('&lt;').split('>').join('&gt;')
-        .split('"').join('&quot;').split("'").join('&#39;');
-    }
 
     // ---------- list ----------
     function render() {
@@ -104,8 +96,8 @@ import AppLayout from '../layouts/AppLayout.astro';
             <div class="w-16 h-16 bg-surface-hover rounded-full flex items-center justify-center mb-4">
                <i class="bi bi-telephone text-[24px] text-ink-faint"></i>
             </div>
-            <div class="text-[15px] font-bold text-ink mb-1">No pending calls</div>
-            <div class="text-[13px] text-ink-mute mb-4">When a patient calls in with an issue, log it here.</div>
+            <div class="text-[15px] font-bold text-ink mb-1">No pending tasks</div>
+            <div class="text-[13px] text-ink-mute mb-4">When a patient calls in or has a scheduled call, it will appear here.</div>
             <button id="empty-new-btn" class="h-9 px-4 rounded-lg bg-accent text-white text-[13px] font-bold shadow-sm hover:bg-accent-hover transition-colors">Add Call</button>
           </div>`;
         
@@ -114,37 +106,55 @@ import AppLayout from '../layouts/AppLayout.astro';
         return;
       }
 
-      root.innerHTML = state.pending.map((c) => `
-        <div data-call-id="${esc(c.id)}"
+      root.innerHTML = state.pending.map((c) => {
+        const isProblem = c._type === 'problem';
+        return `
+        <div data-call-id="${esc(c.id)}" data-type="${c._type}"
           class="flex items-center gap-4 px-4 md:px-6 py-4 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline last:border-b-0">
           
-          <!-- Avatar/Icon -->
-          <div class="w-10 h-10 rounded-full bg-pink-50 text-pink-500 flex items-center justify-center shrink-0">
-            <i class="bi bi-telephone-fill text-[15px]"></i>
+          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+            isProblem ? 'bg-pink-50 text-pink-500' : 'bg-blue-50 text-blue-500'
+          }">
+            <i class="bi ${isProblem ? 'bi-telephone-fill' : 'bi-calendar-check-fill'} text-[15px]"></i>
           </div>
 
-          <!-- Details -->
           <div class="flex-1 min-w-0">
             <div class="text-[15px] font-bold text-ink truncate">${esc(c.patientName || 'Patient')}</div>
-            <div class="text-[13px] text-ink-mute truncate mt-0.5">${esc(c.reason || c.patientPhone || 'No reason provided')}</div>
+            <div class="text-[13px] text-ink-mute truncate mt-0.5">${
+              isProblem 
+                ? esc(c.reason || 'No reason')
+                : `Scheduled for ${esc(c.date)} at ${esc(c.slot)}`
+            }</div>
           </div>
           
-          <!-- Action -->
+          <div class="shrink-0 mr-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+              isProblem ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'
+            }">${isProblem ? 'Problem' : 'Scheduled'}</span>
+          </div>
+
           <div class="shrink-0 text-ink-faint">
             <i class="bi bi-chevron-right text-[16px]"></i>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
 
       root.querySelectorAll('[data-call-id]').forEach((el) => {
         el.addEventListener('click', () => {
-          location.href = `/call?id=${encodeURIComponent(el.getAttribute('data-call-id'))}`;
+          const type = el.getAttribute('data-type');
+          const id = el.getAttribute('data-call-id');
+          if (type === 'problem') {
+            location.href = `/call?id=${encodeURIComponent(id)}`;
+          } else {
+            location.href = `/appointment?id=${encodeURIComponent(id)}`;
+          }
         });
       });
     }
 
     async function load() {
       try {
-        state.pending = await listPending(state.clinicId);
+        state.pending = await listMergedPending(state.clinicId);
       } catch (err) {
         state.pending = [];
       }
@@ -251,7 +261,7 @@ import AppLayout from '../layouts/AppLayout.astro';
           patientPhone: state.newCallPatient.phone,
           reason: $('#nc-reason').value.trim()
         });
-        showToast('Call added');
+        showToast('Call added', 'success');
         closeModal();
         await load();
       } catch (err) {

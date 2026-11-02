@@ -7,6 +7,8 @@ import { me } from './lib/auth-guards.js';
 import { getActiveClinicId, getActiveClinic } from './lib/clinic-context.js';
 import { subscribeForDay, updateStatus, softDelete, reschedule as rescheduleAppt } from './appointments.js';
 import { createFromVisit, findPendingForPatient, supersede } from './followups.js';
+import { create as createCall, listMergedPending, resolve as resolveCall } from './calls.js';
+import { searchByName } from './patients.js';
 import { generateSlots, isDayOpen } from './slot-grid.js';
 import { todayISO, addDays, fmtDate, fmtSlot, isToday, isoToDate, intervalToDate } from './date-utils.js';
 import { showToast } from './lib/toast.js';
@@ -18,9 +20,12 @@ const state = {
   clinic: null,
   schedule: null,
   appointments: [],
+  pendingCalls: [],
   unsubscribe: null,
   activeAppt: null,
-  pendingFollowup: null
+  activeCall: null,
+  pendingFollowup: null,
+  qcPatient: null // For Quick Add Call
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -39,8 +44,12 @@ export async function startDayView() {
   wireNavButtons();
   wireDatePickers();
   wireRowModal();
+  wireQuickCallModal();
+  wireCallActionModal();
+  
   renderHeader();
   renderGrid();
+  loadCallsPanel(); // Load the right-side panel
   subscribe();
 }
 
@@ -175,7 +184,6 @@ function renderGrid() {
                  </button>
               </div>`;
 
-        // --- DESKTOP TABLE ROW (5 Columns) ---
         tableHtml += `
           <tr class="hover:bg-surface-hover/30 transition-colors border-b border-hairline cursor-pointer group" data-appt-id="${a.id}">
             <td class="px-4 md:px-6 py-2.5 md:py-3 whitespace-nowrap text-[13px] font-bold text-ink ${isCancelled ? 'opacity-50' : ''}">
@@ -198,21 +206,14 @@ function renderGrid() {
             </td>
           </tr>`;
 
-        // --- MOBILE LIST ROW ---
         mobileHtml += `
           <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0 ${isSeen ? 'opacity-50 grayscale' : ''}" data-appt-id="${a.id}">
-            
-            <!-- Time -->
             <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap ${isCancelled ? 'opacity-50' : ''}">
               ${fmtSlot(slot)}
             </div>
-            
-            <!-- Patient Name -->
             <div class="flex-1 min-w-0 text-[13.5px] font-bold text-ink group-hover:text-accent transition-colors truncate ${isCancelled ? 'opacity-50 line-through' : ''}">
               ${esc(a.patientName)}
             </div>
-            
-            <!-- Badges -->
             <div class="shrink-0 flex items-center gap-1">
                ${isCancelled 
                  ? `<button data-action="rebook" data-id="${a.id}" class="px-2 py-1 rounded bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm hover:bg-red-600 transition-colors">Re-book</button>` 
@@ -262,6 +263,251 @@ function renderGrid() {
     });
   });
 }
+
+// ============================================================
+// CALLS PANEL (Right Side)
+// ============================================================
+
+async function loadCallsPanel() {
+  try {
+    state.pendingCalls = await listMergedPending(state.clinicId);
+    renderCallsPanel();
+  } catch (err) {
+    console.error('[day-view] load calls failed', err);
+  }
+}
+
+function renderCallsPanel() {
+  const root = $('#day-calls-list');
+  const countEl = $('#calls-panel-count');
+  if (!root) return;
+
+  if (countEl) {
+    countEl.textContent = state.pendingCalls.length;
+    if (state.pendingCalls.length > 0) countEl.classList.remove('hidden');
+    else countEl.classList.add('hidden');
+  }
+
+  if (state.pendingCalls.length === 0) {
+    root.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No pending calls.</div>`;
+    return;
+  }
+
+  root.innerHTML = state.pendingCalls.map(c => {
+    const isProblem = c._type === 'problem';
+    let timeStr, dateStr;
+    
+    if (isProblem) {
+      const cDate = new Date(c.createdAt.seconds * 1000);
+      timeStr = `${String(cDate.getHours()).padStart(2,'0')}:${String(cDate.getMinutes()).padStart(2,'0')}`;
+      dateStr = `${String(cDate.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cDate.getMonth()]}`;
+    } else {
+      timeStr = fmtSlot(c.slot);
+      dateStr = fmtDate(c.date);
+    }
+
+    return `
+      <div class="flex items-start gap-3 px-4 py-3 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline/50 last:border-b-0" data-call-id="${c.id}" data-type="${c._type}">
+        <div class="w-[50px] shrink-0 pt-0.5">
+          <div class="text-[12px] font-bold text-ink tnum">${timeStr}</div>
+          <div class="text-[10px] text-ink-faint tnum">${dateStr}</div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-[13.5px] font-bold text-ink truncate">${esc(c.patientName)}</div>
+          <div class="text-[11px] text-ink-mute truncate">${esc(isProblem ? c.reason || 'No reason' : 'Scheduled Call')}</div>
+        </div>
+        <div class="shrink-0">
+          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+            isProblem ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'
+          }">${isProblem ? 'P' : 'S'}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  root.querySelectorAll('[data-call-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const type = el.getAttribute('data-type');
+      const id = el.getAttribute('data-call-id');
+      const call = state.pendingCalls.find(c => c.id === id && c._type === type);
+      if (call) openCallActionModal(call);
+    });
+  });
+}
+
+// ============================================================
+// CALL ACTION MODAL
+// ============================================================
+
+function openCallActionModal(call) {
+  state.activeCall = call;
+  const isProblem = call._type === 'problem';
+
+  $('#ca-name').textContent = call.patientName || 'Patient';
+  $('#ca-reason').textContent = isProblem ? (call.reason || 'No reason') : `Scheduled for ${call.date} at ${call.slot}`;
+  $('#ca-type').textContent = isProblem ? 'Problem Call' : 'Scheduled Call';
+  $('#ca-type').className = `px-2 py-0.5 rounded text-white text-[9px] font-bold uppercase ${isProblem ? 'bg-pink-500' : 'bg-blue-500'}`;
+
+  $('#ca-backdrop').classList.remove('hidden');
+  $('#ca-modal').classList.remove('hidden');
+  $('#ca-modal').classList.add('flex');
+}
+
+function closeCallActionModal() {
+  $('#ca-backdrop').classList.add('hidden');
+  $('#ca-modal').classList.add('hidden');
+  $('#ca-modal').classList.remove('flex');
+  state.activeCall = null;
+}
+
+function wireCallActionModal() {
+  $('#ca-backdrop')?.addEventListener('click', closeCallActionModal);
+  $('#ca-close')?.addEventListener('click', closeCallActionModal);
+
+  $('#ca-btn-complete')?.addEventListener('click', async () => {
+    if (!state.activeCall) return;
+    try {
+      if (state.activeCall._type === 'problem') {
+        await resolveCall(state.activeCall.id, 'completed', 'Marked from Day View');
+      } else {
+        await updateStatus(state.activeCall.id, 'seen', '');
+        invalidateOccupancy(state.clinicId, state.activeCall.date);
+      }
+      showToast('Call completed', 'success');
+      closeCallActionModal();
+      loadCallsPanel();
+    } catch (err) { showToast('Could not complete', 'error'); }
+  });
+
+  $('#ca-btn-convert')?.addEventListener('click', async () => {
+    if (!state.activeCall) return;
+    closeCallActionModal();
+    // Redirect to book page with patient prefilled
+    location.href = `/book?patientId=${state.activeCall.patientId}`;
+  });
+
+  $('#ca-btn-cancel')?.addEventListener('click', async () => {
+    if (!state.activeCall) return;
+    if (!confirm('Are you sure you want to cancel this call?')) return;
+    
+    try {
+      if (state.activeCall._type === 'problem') {
+        await resolveCall(state.activeCall.id, 'add_to_appointment', 'Cancelled');
+      } else {
+        await updateStatus(state.activeCall.id, 'cancelled', 'clinic');
+        invalidateOccupancy(state.clinicId, state.activeCall.date);
+      }
+      showToast('Call cancelled', 'success');
+      closeCallActionModal();
+      loadCallsPanel();
+    } catch (err) { showToast('Could not cancel', 'error'); }
+  });
+}
+
+// ============================================================
+// QUICK ADD CALL MODAL
+// ============================================================
+function wireQuickCallModal() {
+  const btn = $('#quick-add-call-btn');
+  const backdrop = $('#qc-backdrop');
+  const modal = $('#qc-modal');
+  const closeBtn = $('#qc-close');
+  const saveBtn = $('#qc-save');
+  const searchIn = $('#qc-name');
+  const resultsEl = $('#qc-results');
+  const phoneIn = $('#qc-phone');
+
+  if (!btn || !backdrop || !modal) return;
+
+  const close = () => {
+    backdrop.classList.add('hidden');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    searchIn.value = '';
+    phoneIn.value = '';
+    $('#qc-reason').value = '';
+    resultsEl.innerHTML = '';
+    state.qcPatient = null;
+  };
+
+  btn.addEventListener('click', () => {
+    backdrop.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => searchIn.focus(), 150);
+  });
+
+  closeBtn?.addEventListener('click', close);
+  backdrop?.addEventListener('click', close);
+
+  let timer = null;
+  searchIn?.addEventListener('input', (e) => {
+    clearTimeout(timer);
+    const q = e.target.value.trim();
+    if (q.length < 2) { resultsEl.innerHTML = ''; return; }
+    timer = setTimeout(async () => {
+      const byName = await searchByName(state.clinicId, q, 5);
+      if (byName.length > 0) {
+        resultsEl.innerHTML = byName.map(p => `
+          <div data-pid="${p.id}" data-pname="${esc(p.name)}" data-pphone="${esc(p.phone || '')}" class="px-3 py-2 hover:bg-surface-hover cursor-pointer border-b border-hairline last:border-0 text-[13px]">
+            <div class="font-bold text-ink">${esc(p.name)}</div>
+            ${p.phone ? `<div class="text-[11px] text-ink-mute">${esc(p.phone)}</div>` : ''}
+          </div>`).join('');
+      } else {
+        resultsEl.innerHTML = '';
+      }
+    }, 250);
+  });
+
+  resultsEl?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-pid]');
+    if (!row) return;
+    state.qcPatient = {
+      id: row.getAttribute('data-pid'),
+      name: row.getAttribute('data-pname'),
+      phone: row.getAttribute('data-pphone')
+    };
+    searchIn.value = state.qcPatient.name;
+    phoneIn.value = state.qcPatient.phone;
+    resultsEl.innerHTML = '';
+  });
+
+  saveBtn?.addEventListener('click', async () => {
+    const name = searchIn.value.trim();
+    const phone = phoneIn.value.trim();
+    const reason = $('#qc-reason').value.trim();
+
+    if (!name || !reason) {
+      showToast('Name and reason are required', 'error');
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    try {
+      await createCall({
+        clinicId: state.clinicId,
+        patientId: state.qcPatient ? state.qcPatient.id : null,
+        patientName: name,
+        patientPhone: phone,
+        reason: reason
+      });
+      showToast('Call added', 'success');
+      close();
+      loadCallsPanel(); // Refresh right panel
+    } catch (err) {
+      console.error(err);
+      showToast('Could not save call', 'error');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Call';
+    }
+  });
+}
+
+// ============================================================
+// EXISTING APPOINTMENT MODAL (Row Actions)
+// ============================================================
 
 async function handleRowAction(action, id) {
   const appt = state.appointments.find(a => a.id === id);
@@ -354,8 +600,13 @@ function wireNavButtons() {
 }
 
 function wireDatePickers() {
+  const dBtn = $('#desktop-date-picker-btn');
   const dInput = $('#desktop-date-picker-input');
-  if (dInput) {
+  if (dBtn && dInput) {
+    dBtn.addEventListener('click', () => {
+      dInput.value = state.dateISO;
+      try { dInput.showPicker && dInput.showPicker(); } catch {}
+    });
     dInput.addEventListener('change', (e) => {
       if (e.target.value) goDate(e.target.value);
     });
@@ -426,7 +677,7 @@ function openRowModal(appt) {
   setTimeout(() => {
     if (!btnComplete.disabled) btnComplete.focus();
     else btnCancel.focus();
-  }, 150);
+      }, 150);
 }
 
 function closeRowModal() {

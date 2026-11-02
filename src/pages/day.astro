@@ -4,58 +4,37 @@ import AppLayout from '../layouts/AppLayout.astro';
 <AppLayout title="Day">
   <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col h-[calc(100vh-52px)] bg-surface overflow-hidden">
 
-    <!-- Mobile Header -->
-    <div class="md:hidden flex items-center gap-2 mb-4 shrink-0">
-      <div class="flex-1 flex bg-white border border-hairline rounded-2xl p-1 shadow-sm">
-        <button id="day-prev" class="flex-1 flex flex-col items-center justify-center h-[56px] rounded-xl hover:bg-surface-hover transition-all text-ink-mute">
-          <span class="text-[9px] font-bold uppercase tracking-widest opacity-60">Yesterday</span>
-          <span id="mobile-day-prev" class="text-[15px] font-bold tnum mt-0.5">—</span>
-        </button>
-        <button id="day-today-mobile" class="flex-1 flex flex-col items-center justify-center h-[56px] rounded-xl bg-ink text-white shadow-md transition-all">
-          <span class="text-[9px] font-bold uppercase tracking-widest opacity-80">Today</span>
-          <span id="mobile-day-today" class="text-[15px] font-bold tnum mt-0.5">—</span>
-        </button>
-        <button id="day-next" class="flex-1 flex flex-col items-center justify-center h-[56px] rounded-xl hover:bg-surface-hover transition-all text-ink-mute">
-          <span class="text-[9px] font-bold uppercase tracking-widest opacity-60">Tomorrow</span>
-          <span id="mobile-day-next" class="text-[15px] font-bold tnum mt-0.5">—</span>
-        </button>
-      </div>
+    <!-- Header (Shared Mobile & Desktop) -->
+    <div class="flex flex-col gap-3 mb-4 md:mb-6 shrink-0">
       
-      <!-- Mobile Date Picker Button with selected date text -->
-      <button id="mobile-date-picker-btn" class="w-[64px] h-[64px] shrink-0 flex flex-col items-center justify-center gap-0.5 bg-white border border-hairline rounded-2xl shadow-sm hover:bg-surface-hover text-ink transition-colors">
-        <i class="bi bi-calendar-event text-[16px] mb-0.5"></i>
-        <span id="mobile-date-display" class="text-[9px] font-bold tracking-widest opacity-80">—</span>
-      </button>
-      
-      <input type="date" id="mobile-date-picker-input" class="opacity-0 absolute pointer-events-none w-0 h-0" tabindex="-1" />
-    </div>
-
-    <!-- Desktop Header -->
-    <div class="hidden md:flex flex-col gap-4 mb-6 w-full shrink-0">
-      <div class="flex items-center gap-3 w-full">
-        <button id="day-prev-desktop" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
-          <i class="bi bi-chevron-left text-[16px]"></i>
+      <!-- Date Strip -->
+      <div class="flex items-center gap-1.5 md:gap-2 w-full">
+        <button id="day-prev" class="w-8 h-8 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+          <i class="bi bi-chevron-left text-[14px] md:text-[16px]"></i>
         </button>
-        <div id="day-strip" class="flex-1 flex gap-2 bg-white border border-hairline p-1.5 rounded-2xl shadow-sm overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"></div>
-        <button id="day-next-desktop" class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
-          <i class="bi bi-chevron-right text-[16px]"></i>
-        </button>
-      </div>
-      <div class="flex items-center justify-between px-2">
-        <div class="flex items-center gap-3">
-          <div class="text-[22px] font-bold text-ink tracking-tight" id="day-date">—</div>
-          <div class="text-[13px] font-medium text-ink-faint px-3 py-1 bg-surface-hover rounded-full" id="day-sub">—</div>
-        </div>
         
-        <div class="flex items-center gap-4">
-          <button id="day-today" class="text-[13px] font-bold text-accent hover:underline hidden">Go to Today</button>
-          
-          <!-- Desktop Date Picker Button -->
-          <button id="desktop-date-picker-btn" class="h-8 px-3 rounded-lg bg-white border border-hairline text-[12px] font-bold text-ink hover:bg-surface-hover shadow-sm flex items-center gap-2 transition-colors">
-            <i class="bi bi-calendar-event"></i> Pick Date
+        <div id="day-strip" class="flex-1 flex gap-1.5 md:gap-2 bg-white border border-hairline p-1.5 rounded-2xl shadow-sm overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth"></div>
+        
+        <button id="day-next" class="w-8 h-8 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+          <i class="bi bi-chevron-right text-[14px] md:text-[16px]"></i>
+        </button>
+        
+        <!-- Date Picker Button -->
+        <div class="relative w-8 h-8 md:w-10 md:h-10 shrink-0 ml-1">
+          <button id="desktop-date-picker-btn" class="w-full h-full grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+            <i class="bi bi-calendar-event text-[14px] md:text-[16px]"></i>
           </button>
-          <input type="date" id="desktop-date-picker-input" class="opacity-0 absolute pointer-events-none w-0 h-0" tabindex="-1" />
+          <input type="date" id="desktop-date-picker-input" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" tabindex="-1" />
         </div>
+      </div>
+
+      <!-- Date Title -->
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-3">
+          <div class="text-[20px] md:text-[22px] font-bold text-ink tracking-tight" id="day-date">—</div>
+          <div class="text-[12px] md:text-[13px] font-medium text-ink-faint px-3 py-1 bg-surface-hover rounded-full" id="day-sub">—</div>
+        </div>
+        <button id="day-today" class="text-[12px] md:text-[13px] font-bold text-accent hover:underline hidden">Go to Today</button>
       </div>
     </div>
 
@@ -79,13 +58,11 @@ import AppLayout from '../layouts/AppLayout.astro';
 
         <!-- MOBILE LIST (Hidden on Desktop) -->
         <div class="md:hidden flex flex-col w-full">
-          <!-- Mobile Header -->
           <div class="sticky top-0 bg-surface-hover z-10 border-b border-hairline flex items-center px-4 py-3 gap-3">
             <div class="w-[60px] shrink-0 text-[10px] font-bold tracking-widest text-ink-mute uppercase">Time</div>
             <div class="flex-1 text-[10px] font-bold tracking-widest text-ink-mute uppercase">Patient</div>
             <div class="shrink-0 text-right text-[10px] font-bold tracking-widest text-ink-mute uppercase">Type</div>
           </div>
-          <!-- Mobile Rows injected here -->
           <div id="day-mobile-list" class="divide-y divide-hairline"></div>
         </div>
 
@@ -94,7 +71,7 @@ import AppLayout from '../layouts/AppLayout.astro';
 
   </div>
 
-  <!-- ROW ACTION MODAL — bottom-sheet on mobile, centered card on desktop -->
+  <!-- ROW ACTION MODAL -->
   <div id="ra-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
 
   <div id="ra-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
@@ -130,15 +107,12 @@ import AppLayout from '../layouts/AppLayout.astro';
       </button>
     </div>
 
-    <!-- Follow-up Picker — date input AND interval dropdown (§8.5) -->
     <div id="ra-panel-followup" class="hidden p-5">
       <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Schedule next follow-up</div>
-
       <div class="mb-3">
         <label class="block text-[12px] font-medium text-ink-mute mb-1">Pick a date</label>
         <input type="date" id="ra-fu-date" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" />
       </div>
-
       <div class="mb-4">
         <label class="block text-[12px] font-medium text-ink-mute mb-1">Or pick an interval</label>
         <select id="ra-fu-interval" class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent">
@@ -153,9 +127,7 @@ import AppLayout from '../layouts/AppLayout.astro';
           <option value="365">12 months</option>
         </select>
       </div>
-
       <div id="ra-followup-note" class="hidden mb-3 p-3 rounded-lg bg-orange-50 text-[12px] text-orange-700 border border-orange-200"></div>
-
       <div class="flex gap-3">
         <button id="ra-followup-back" type="button" class="flex-1 h-10 rounded-xl bg-white text-ink border border-hairline text-[13px] font-semibold">Back</button>
         <button id="ra-followup-save" type="button" class="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold">Mark Complete</button>

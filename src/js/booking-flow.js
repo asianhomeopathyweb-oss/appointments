@@ -45,7 +45,6 @@ export async function startBookingFlow() {
   wireEvents();
   renderDateStrip();
   
-  // Show loading state while we fetch existing bookings
   $('#book-slots').innerHTML = `<div class="p-6 text-center text-[13px] text-ink-mute">Loading slots...</div>`;
   
   await refreshExisting();
@@ -78,7 +77,6 @@ async function readQueryParams() {
   }
 }
 
-// SMART DEFAULTS & HISTORY CONTEXT
 async function selectPatient(patient) {
   state.patient = { id: patient.id, name: patient.name, phone: patient.phone || '' };
 
@@ -163,6 +161,11 @@ function renderDateStrip() {
       renderSummary();
     });
   });
+
+  const selectedEl = strip.querySelector('.bg-ink');
+  if (selectedEl) {
+    selectedEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
 }
 
 function renderSlotGrid() {
@@ -261,6 +264,31 @@ function wireEvents() {
   if (prev) prev.addEventListener('click', () => { state.weekStart = addDays(state.weekStart, -7); renderDateStrip(); });
   if (next) next.addEventListener('click', () => { state.weekStart = addDays(state.weekStart, 7); renderDateStrip(); });
 
+  // The native date picker override
+  const pickerBtn = $('#booking-date-picker-btn');
+  const pickerInput = $('#booking-date-picker-input');
+  if (pickerBtn && pickerInput) {
+    pickerBtn.addEventListener('click', () => {
+      pickerInput.value = state.dateISO;
+      try { pickerInput.showPicker && pickerInput.showPicker(); } catch {}
+    });
+    pickerInput.addEventListener('change', async (e) => {
+      if (e.target.value) {
+        state.dateISO = e.target.value;
+        state.slot = null;
+        
+        // Snap the strip to the selected week
+        state.weekStart = state.dateISO; 
+        
+        renderDateStrip();
+        $('#book-slots').innerHTML = `<div class="p-6 text-center text-[13px] text-ink-mute">Loading slots...</div>`;
+        await refreshExisting();
+        renderSlotGrid();
+        renderSummary();
+      }
+    });
+  }
+
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       state.patient = null;
@@ -273,7 +301,6 @@ function wireEvents() {
     });
   }
 
-  // SEARCH
   let searchTimer = null;
   if (searchInput) {
     searchInput.addEventListener('input', () => {
@@ -326,7 +353,6 @@ function wireEvents() {
     });
   });
 
-  // GLOBAL KEYBOARD SHORTCUTS
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       state.slot = null;
@@ -404,7 +430,6 @@ async function save() {
     return;
   }
 
-  // Centralised collision check (same helper used by reschedule)
   let occ;
   try {
     occ = await checkSlotOccupancy({
@@ -472,14 +497,14 @@ function openPatientModal() {
   const npReferral = $('#np-referral');
   const npSave = $('#np-save');
 
-  if (npName) npName.value = '';
+  if (npName) npName.value = $('#patient-search') ? $('#patient-search').value : '';
   if (npPhone) npPhone.value = '';
   if (npAge) npAge.value = '';
   if (npAgeUnit) npAgeUnit.value = 'years';
   if (npSex) npSex.value = 'Male';
   if (npAddress) npAddress.value = '';
-  if (npReferral) npReferral.value = 'Google';
-  if (npSave) npSave.disabled = true;
+  if (npReferral) npReferral.value = '';
+  if (npSave) npSave.disabled = !npName.value.trim();
 
   const backdrop = $('#np-backdrop');
   const modal = $('#np-modal');

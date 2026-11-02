@@ -63,10 +63,6 @@ async function loadSchedule(clinicId) {
 function renderHeader() {
   const dateEl = $('#day-date');
   const subEl = $('#day-sub');
-  const mPrev = $('#mobile-day-prev');
-  const mToday = $('#mobile-day-today');
-  const mNext = $('#mobile-day-next');
-  const mobileDisplay = $('#mobile-date-display');
 
   if (dateEl) dateEl.textContent = fmtDate(state.dateISO);
   if (subEl) {
@@ -74,18 +70,6 @@ function renderHeader() {
     const seen = state.appointments.filter((a) => a.status === 'seen').length;
     subEl.textContent = total === 0 ? 'No appointments' : `${total} booked · ${seen} seen`;
   }
-
-  const fmtShort = (iso) => {
-    const d = isoToDate(iso);
-    return `${String(d.getDate()).padStart(2, '0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
-  };
-
-  const today = todayISO();
-  if (mPrev) mPrev.textContent = fmtShort(addDays(today, -1));
-  if (mToday) mToday.textContent = fmtShort(today);
-  if (mNext) mNext.textContent = fmtShort(addDays(today, 1));
-  
-  if (mobileDisplay) mobileDisplay.textContent = fmtShort(state.dateISO);
 
   const todayBtn = $('#day-today');
   if (todayBtn) todayBtn.classList.toggle('hidden', isToday(state.dateISO));
@@ -98,7 +82,7 @@ function renderHeader() {
   if (strip) {
     strip.innerHTML = days.map(iso => {
       const isSelected = iso === state.dateISO;
-      const isTodayDate = iso === today;
+      const isTodayDate = iso === todayISO();
       const d = isoToDate(iso);
       const dayName = ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()];
       const dayNum = d.getDate();
@@ -111,15 +95,20 @@ function renderHeader() {
 
       return `
         <button type="button" data-day="${iso}"
-          class="flex-1 flex flex-col items-center justify-center min-w-[60px] h-[56px] rounded-xl transition-all ${cls}">
+          class="flex-1 flex flex-col items-center justify-center min-w-[55px] md:min-w-[60px] h-[52px] md:h-[56px] rounded-xl transition-all ${cls}">
           <span class="text-[9px] font-bold tracking-widest uppercase opacity-70">${dayName}</span>
-          <span class="text-[16px] font-bold tnum leading-none mt-1">${dayNum}</span>
+          <span class="text-[15px] md:text-[16px] font-bold tnum leading-none mt-1">${dayNum}</span>
         </button>`;
     }).join('');
 
     strip.querySelectorAll('[data-day]').forEach(el => {
       el.addEventListener('click', () => goDate(el.getAttribute('data-day')));
     });
+
+    const selectedEl = strip.querySelector('.bg-ink');
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
   }
 }
 
@@ -208,19 +197,28 @@ function renderGrid() {
             </td>
           </tr>`;
 
+                // --- MOBILE LIST ROW ---
         mobileHtml += `
-          <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0" data-appt-id="${a.id}">
+          <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0 ${isSeen ? 'opacity-50 grayscale' : ''}" data-appt-id="${a.id}">
+            
+            <!-- Time -->
             <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap ${isCancelled ? 'opacity-50' : ''}">
               ${fmtSlot(slot)}
             </div>
+            
+            <!-- Patient Name -->
             <div class="flex-1 min-w-0 text-[13.5px] font-bold text-ink group-hover:text-accent transition-colors truncate ${isCancelled ? 'opacity-50 line-through' : ''}">
               ${esc(a.patientName)}
             </div>
+            
+            <!-- Badges -->
             <div class="shrink-0 flex items-center gap-1">
                ${isCancelled 
                  ? `<button data-action="rebook" data-id="${a.id}" class="px-2 py-1 rounded bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm hover:bg-red-600 transition-colors">Re-book</button>` 
-                 : `<span class="px-1.5 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'N' : 'F'}</span>
-                    <span class="px-1.5 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode === 'call' ? 'C' : 'V'}</span>`}
+                 : isSeen
+                   ? `<span class="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1"><i class="bi bi-check-circle-fill"></i> Done</span>`
+                   : `<span class="px-1.5 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'N' : 'F'}</span>
+                      <span class="px-1.5 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode === 'call' ? 'C' : 'V'}</span>`}
             </div>
           </div>`;
       });
@@ -347,40 +345,16 @@ function subscribe() {
 function wireNavButtons() {
   const prev = $('#day-prev');
   const next = $('#day-next');
-  const prevDesktop = $('#day-prev-desktop');
-  const nextDesktop = $('#day-next-desktop');
   const today = $('#day-today');
-  const todayMobile = $('#day-today-mobile');
 
-  if (prev) prev.addEventListener('click', () => goDate(addDays(todayISO(), -1)));
-  if (next) next.addEventListener('click', () => goDate(addDays(todayISO(), 1)));
-  if (todayMobile) todayMobile.addEventListener('click', () => goDate(todayISO()));
-
-  if (prevDesktop) prevDesktop.addEventListener('click', () => goDate(addDays(state.dateISO, -1)));
-  if (nextDesktop) nextDesktop.addEventListener('click', () => goDate(addDays(state.dateISO, 1)));
+  if (prev) prev.addEventListener('click', () => goDate(addDays(state.dateISO, -1)));
+  if (next) next.addEventListener('click', () => goDate(addDays(state.dateISO, 1)));
   if (today) today.addEventListener('click', () => goDate(todayISO()));
 }
 
 function wireDatePickers() {
-  const mBtn = $('#mobile-date-picker-btn');
-  const mInput = $('#mobile-date-picker-input');
-  if (mBtn && mInput) {
-    mBtn.addEventListener('click', () => {
-      mInput.value = state.dateISO;
-      try { mInput.showPicker && mInput.showPicker(); } catch {}
-    });
-    mInput.addEventListener('change', (e) => {
-      if (e.target.value) goDate(e.target.value);
-    });
-  }
-
-  const dBtn = $('#desktop-date-picker-btn');
   const dInput = $('#desktop-date-picker-input');
-  if (dBtn && dInput) {
-    dBtn.addEventListener('click', () => {
-      dInput.value = state.dateISO;
-      try { dInput.showPicker && dInput.showPicker(); } catch {}
-    });
+  if (dInput) {
     dInput.addEventListener('change', (e) => {
       if (e.target.value) goDate(e.target.value);
     });
@@ -543,11 +517,14 @@ function wireRowModal() {
       dueDate = intervalToDate(appt.date, days);
     }
 
-    if (!dueDate && state.pendingFollowup) {
-      const proceed = confirm(
-        `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
-      );
-      if (!proceed) return;
+       // THE BULLETPROOF WARNING (Warns every time if blank)
+    if (!dueDate) {
+      const msg = state.pendingFollowup 
+        ? `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
+        : `No follow-up date selected. Are you sure you want to mark this patient as complete without a follow-up?`;
+      
+      const proceed = confirm(msg);
+      if (!proceed) return; 
     }
 
     try {

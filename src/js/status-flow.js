@@ -241,11 +241,13 @@ async function doFollowupSave() {
     dueDate = intervalToDate(state.appointment.date, days);
   }
 
-  // Bulletproof warning check
-  if (!dueDate && state.pendingFollowup) {
-    const proceed = confirm(
-      `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
-    );
+  // THE BULLETPROOF WARNING (Warns every time if blank)
+  if (!dueDate) {
+    const msg = state.pendingFollowup 
+      ? `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
+      : `No follow-up date selected. Are you sure you want to mark this patient as seen without a follow-up?`;
+    
+    const proceed = confirm(msg);
     if (!proceed) return;
   }
 

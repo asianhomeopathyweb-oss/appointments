@@ -1,13 +1,5 @@
 ﻿// ============================================================
 // Booking policy
-//
-// Decides whether a slot can be booked, and whether to warn.
-// Warnings are non-blocking: staff can always override.
-// Blocks are for patient-facing bookings only (future).
-//
-// checkSlot()            — pure logic, no IO (existing)
-// checkSlotOccupancy()   — loads appointments for a day and
-//                          reports occupancy for one slot (new)
 // ============================================================
 
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -42,10 +34,10 @@ export function fitsInGrid(slots, slot, n) {
 }
 
 // ============================================================
-// Occupancy cache — one fetch per (clinicId, dateISO)
+// Occupancy cache
 // ============================================================
 
-const _cache = new Map(); // key: `${clinicId}|${dateISO}` → { at, rows }
+const _cache = new Map();
 
 function _cacheKey(clinicId, dateISO) {
   return `${clinicId}|${dateISO}`;
@@ -55,7 +47,6 @@ async function _loadDay(clinicId, dateISO) {
   const key = _cacheKey(clinicId, dateISO);
   const hit = _cache.get(key);
   const now = Date.now();
-  // 30s TTL — reschedule dialogs are short-lived; this avoids refetch per slot
   if (hit && now - hit.at < 30_000) return hit.rows;
 
   const q = query(
@@ -71,29 +62,15 @@ async function _loadDay(clinicId, dateISO) {
   return rows;
 }
 
-/**
- * Invalidate cache for a date (call after create / reschedule / cancel).
- */
 export function invalidateOccupancy(clinicId, dateISO) {
   _cache.delete(_cacheKey(clinicId, dateISO));
 }
 
-/**
- * Occupancy for one slot on one day.
- *
- * @param {object} args
- * @param {string} args.clinicId
- * @param {string} args.dateISO          "YYYY-MM-DD"
- * @param {string} args.slot             "HH:mm"
- * @param {string} [args.excludeApptId]  ignore this appt (e.g. the one being rescheduled)
- * @returns {Promise<{count:number, conflict:null|{id:string, patientName:string, status:string, isDurationConflict:boolean}}>}
- */
 export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptId }) {
   if (!clinicId || !dateISO || !slot) return { count: 0, conflict: null };
 
   const rows = await _loadDay(clinicId, dateISO);
   
-  // To check duration overlaps, we need to know the grid slots for this clinic
   const scheduleSnap = await getDocs(query(collection(db, 'clinicSchedule'), where('clinicId', '==', clinicId)));
   const schedule = scheduleSnap.docs[0]?.data();
   const allSlots = schedule ? generateSlots(schedule) : [];
@@ -112,15 +89,18 @@ export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptI
     const duration = a.durationSlots || 1;
     const endIndex = startIndex + duration;
 
-    // If target slot falls inside this appointment's time block
     if (targetIndex !== -1 && targetIndex >= startIndex && targetIndex < endIndex) {
       count++;
-      if (!conflict) {
+      
+      const isDurationConflict = targetIndex !== startIndex;
+      
+      // Prioritize the duration conflict in the conflict object
+      if (!conflict || (isDurationConflict && !conflict.isDurationConflict)) {
         conflict = {
           id: a.id,
           patientName: a.patientName || "Patient",
           status: a.status || "booked",
-          isDurationConflict: targetIndex !== startIndex
+          isDurationConflict: isDurationConflict
         };
       }
     }

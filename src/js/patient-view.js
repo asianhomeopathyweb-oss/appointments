@@ -224,8 +224,8 @@ function openEditModal() {
   $('#ep-name').value = p.name || '';
   $('#ep-phone').value = p.phone || '';
   $('#ep-sex').value = p.sex || 'Male';
-  $('#ep-referral').value = p.referral || 'Google';
-  $('#ep-address').value = p.address || '';
+  $('#ep-referral').value = p.referral || '';
+    $('#ep-address').value = p.address || '';
 
   if (p.age) {
     $('#ep-age').value = p.age;

@@ -241,7 +241,7 @@ async function doFollowupSave() {
     dueDate = intervalToDate(state.appointment.date, days);
   }
 
-  // THE BULLETPROOF WARNING (Warns every time if blank)
+  // THE BULLETPROOF WARNING
   if (!dueDate) {
     const msg = state.pendingFollowup 
       ? `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
@@ -266,7 +266,7 @@ async function doFollowupSave() {
       await createFromVisit(state.appointment, days, dueDate);
     }
     
-    showToast('Marked seen');
+    showToast('Marked seen', 'success');
     setTimeout(() => history.back(), 400);
   } catch (err) {
     console.error(err);
@@ -326,16 +326,25 @@ async function doRescheduleSave() {
 
     if (occ.count > 0) {
       const who = occ.conflict?.patientName || 'another patient';
-      const proceed = confirm(
-        `This slot already has ${occ.count} booking${occ.count > 1 ? 's' : ''} (${who}). Move anyway?`
-      );
-      if (!proceed) { state.saving = false; return; }
+      
+      // Handle family member forcing
+      if (occ.conflict?.isDurationConflict) {
+         const proceed = confirm(
+          `This time is blocked by ${who}'s New Patient appointment. Move this patient here anyway?`
+        );
+        if (!proceed) { state.saving = false; return; }
+      } else {
+        const proceed = confirm(
+          `This slot already has ${occ.count} booking${occ.count > 1 ? 's' : ''} (${who}). Move anyway?`
+        );
+        if (!proceed) { state.saving = false; return; }
+      }
     }
 
     await rescheduleAppt(state.appointment.id, newDate, newSlot);
     invalidateOccupancy(state.clinicId, state.appointment.date);
     invalidateOccupancy(state.clinicId, newDate);
-    showToast('Appointment moved');
+    showToast('Appointment moved', 'success');
     setTimeout(() => history.back(), 400);
   } catch (err) {
     console.error(err);
@@ -353,7 +362,7 @@ async function doCancel(reason) {
     // Clear the cache so the slot immediately reopens for booking
     invalidateOccupancy(state.clinicId, state.appointment.date);
     
-    showToast('Appointment cancelled');
+    showToast('Appointment cancelled', 'success');
     setTimeout(() => history.back(), 400);
   } catch (err) {
     showToast('Could not cancel', 'error');
@@ -367,7 +376,7 @@ async function doReopen() {
   try {
     await updateStatus(state.appointment.id, 'booked', '');
     invalidateOccupancy(state.clinicId, state.appointment.date);
-    showToast('Restored');
+    showToast('Restored', 'success');
     setTimeout(() => history.back(), 400);
   } catch (err) {
     showToast('Could not update', 'error');

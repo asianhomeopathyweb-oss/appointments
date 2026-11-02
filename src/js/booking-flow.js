@@ -206,8 +206,26 @@ function renderSlotGrid() {
   root.innerHTML = `<div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1.5 md:gap-2">${html}</div>`;
 
   root.querySelectorAll('[data-slot]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.slot = btn.getAttribute('data-slot');
+    btn.addEventListener('click', async () => {
+      const slot = btn.getAttribute('data-slot');
+      
+      // Check if this slot is inside another patient's block
+      const occ = await checkSlotOccupancy({
+        clinicId: state.clinicId,
+        dateISO: state.dateISO,
+        slot: slot
+      });
+
+      // Warning for ANY existing booking in this slot
+      if (occ.count > 0) {
+        const who = occ.conflict?.patientName || 'another patient';
+        const proceed = confirm(
+          `This time is already booked by ${who}. Are you booking a family member? Click OK to force double-book.`
+        );
+        if (!proceed) return; // Abort if they click Cancel
+      }
+      
+      state.slot = slot;
       renderSlotGrid();
       renderSummary();
     });
@@ -242,9 +260,21 @@ async function refreshExisting() {
   try {
     const rows = await listForDay(state.clinicId, state.dateISO);
     const g = {};
+    const slots = generateSlots(state.schedule);
+    
     for (const r of rows) {
       if (r.status === 'cancelled') continue;
-      g[r.slot] = (g[r.slot] || 0) + 1;
+      
+      const duration = r.durationSlots || 1;
+      const startIndex = slots.indexOf(r.slot);
+      
+      if (startIndex !== -1) {
+        for (let i = 0; i < duration; i++) {
+          if (slots[startIndex + i]) {
+             g[slots[startIndex + i]] = (g[slots[startIndex + i]] || 0) + 1;
+          }
+        }
+      }
     }
     state.existingBySlot = g;
   } catch (err) {
@@ -264,22 +294,13 @@ function wireEvents() {
   if (prev) prev.addEventListener('click', () => { state.weekStart = addDays(state.weekStart, -7); renderDateStrip(); });
   if (next) next.addEventListener('click', () => { state.weekStart = addDays(state.weekStart, 7); renderDateStrip(); });
 
-  // The native date picker override
-  const pickerBtn = $('#booking-date-picker-btn');
   const pickerInput = $('#booking-date-picker-input');
-  if (pickerBtn && pickerInput) {
-    pickerBtn.addEventListener('click', () => {
-      pickerInput.value = state.dateISO;
-      try { pickerInput.showPicker && pickerInput.showPicker(); } catch {}
-    });
+  if (pickerInput) {
     pickerInput.addEventListener('change', async (e) => {
       if (e.target.value) {
         state.dateISO = e.target.value;
-        state.slot = null;
-        
-        // Snap the strip to the selected week
         state.weekStart = state.dateISO; 
-        
+        state.slot = null;
         renderDateStrip();
         $('#book-slots').innerHTML = `<div class="p-6 text-center text-[13px] text-ink-mute">Loading slots...</div>`;
         await refreshExisting();
@@ -476,7 +497,7 @@ async function save() {
   try {
     await createAppointment(payload);
     invalidateOccupancy(state.clinicId, state.dateISO);
-    showToast('Appointment booked');
+    showToast('Appointment booked', 'success');
     const back = '/day?date=' + state.dateISO;
     setTimeout(() => { location.replace(back); }, 300);
   } catch (err) {
@@ -575,7 +596,7 @@ async function saveNewPatientModal() {
       referral: referralEl ? referralEl.value : ''
     });
 
-    showToast('Patient added');
+    showToast('Patient added', 'success');
 
     await selectPatient({ id, name, phone });
     closePatientModal();

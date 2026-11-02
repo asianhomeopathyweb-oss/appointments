@@ -1,34 +1,51 @@
-﻿const DISMISS_MS = 2200;
-const FADE_MS = 220;
+﻿// ============================================================
+// Toast notifications
+// ============================================================
 
-let _host = null;
+export function showToast(msg, type = 'info') {
+  // Remove existing toasts so they don't stack up
+  const existing = document.querySelector('.custom-toast');
+  if (existing) existing.remove();
 
-function ensureHost() {
-  if (_host && document.body.contains(_host)) return _host;
-  _host = document.createElement('div');
-  _host.id = 'toast-host';
-  _host.setAttribute('role', 'status');
-  _host.setAttribute('aria-live', 'polite');
-  _host.className = 'fixed left-1/2 -translate-x-1/2 bottom-6 z-[80] flex flex-col gap-2 items-center pointer-events-none pb-[env(safe-area-inset-bottom)]';
-  document.body.appendChild(_host);
-  return _host;
-}
+  const toast = document.createElement('div');
+  
+  // Base styles (dark, rounded, shadow, fixed at bottom center)
+  const baseClass = 'custom-toast fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl font-bold text-[13px] transition-all duration-300 transform translate-y-10 opacity-0 pointer-events-none';
 
-export function showToast(message, type = 'info') {
-  const host = ensureHost();
-  const el = document.createElement('div');
-  const bg = type === 'error' ? 'bg-[#b91c1c]' : 'bg-ink';
-  el.className = `${bg} text-white text-[13px] px-4 py-2.5 rounded-lg shadow-panel transition-all duration-200 ease-out`;
-  el.textContent = message;
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!reduce) { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }
-  host.appendChild(el);
-  if (!reduce) {
-    requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+  // Icon and color based on type
+  let icon = '';
+  let colorClass = '';
+  
+  if (type === 'error') {
+    icon = '<i class="bi bi-exclamation-circle-fill text-[16px]"></i>';
+    colorClass = 'bg-red-500 text-white';
+  } else if (type === 'success') {
+    icon = '<i class="bi bi-check-circle-fill text-[16px]"></i>';
+    colorClass = 'bg-emerald-500 text-white';
+  } else {
+    icon = '<i class="bi bi-info-circle-fill text-[16px]"></i>';
+    colorClass = 'bg-ink text-white';
   }
+
+  toast.className = `${baseClass} ${colorClass}`;
+  toast.innerHTML = `${icon} <span>${msg}</span>`;
+
+  document.body.appendChild(toast);
+
+  // Trigger the slide-up animation
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-y-10', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+  });
+
+  // Auto dismiss after 2.5 seconds
   setTimeout(() => {
-    if (reduce) { el.remove(); return; }
-    el.style.opacity = '0'; el.style.transform = 'translateY(8px)';
-    setTimeout(() => el.remove(), FADE_MS);
-  }, DISMISS_MS);
+    toast.classList.remove('translate-y-0', 'opacity-100');
+    toast.classList.add('translate-y-10', 'opacity-0');
+    
+    // Remove from DOM after animation finishes
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 300);
+  }, 2500);
 }

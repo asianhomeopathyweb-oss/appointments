@@ -175,6 +175,7 @@ function renderGrid() {
                  </button>
               </div>`;
 
+        // --- DESKTOP TABLE ROW (5 Columns) ---
         tableHtml += `
           <tr class="hover:bg-surface-hover/30 transition-colors border-b border-hairline cursor-pointer group" data-appt-id="${a.id}">
             <td class="px-4 md:px-6 py-2.5 md:py-3 whitespace-nowrap text-[13px] font-bold text-ink ${isCancelled ? 'opacity-50' : ''}">
@@ -197,7 +198,7 @@ function renderGrid() {
             </td>
           </tr>`;
 
-                // --- MOBILE LIST ROW ---
+        // --- MOBILE LIST ROW ---
         mobileHtml += `
           <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0 ${isSeen ? 'opacity-50 grayscale' : ''}" data-appt-id="${a.id}">
             
@@ -303,7 +304,7 @@ async function handleRowAction(action, id) {
     try {
       await softDelete(id);
       invalidateOccupancy(state.clinicId, appt.date);
-      showToast('Appointment deleted');
+      showToast('Appointment deleted', 'success');
     } catch (err) {
       showToast('Failed to delete', 'error');
     }
@@ -517,7 +518,7 @@ function wireRowModal() {
       dueDate = intervalToDate(appt.date, days);
     }
 
-       // THE BULLETPROOF WARNING (Warns every time if blank)
+    // THE BULLETPROOF WARNING
     if (!dueDate) {
       const msg = state.pendingFollowup 
         ? `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
@@ -542,7 +543,7 @@ function wireRowModal() {
         await createFromVisit(appt, days || null, dueDate);
       }
 
-      showToast('Marked as complete');
+      showToast('Marked as complete', 'success');
       closeRowModal();
     } catch (err) {
       console.error(err);
@@ -587,7 +588,7 @@ function wireRowModal() {
       await rescheduleAppt(appt.id, newDate, newSlot);
       invalidateOccupancy(state.clinicId, appt.date);
       invalidateOccupancy(state.clinicId, newDate);
-      showToast('Appointment moved');
+      showToast('Appointment moved', 'success');
       closeRowModal();
     } catch (err) {
       console.error(err);
@@ -602,7 +603,7 @@ function wireRowModal() {
       try {
         await updateStatus(appt.id, 'cancelled', reason);
         invalidateOccupancy(state.clinicId, appt.date);
-        showToast('Appointment cancelled');
+        showToast('Appointment cancelled', 'success');
         closeRowModal();
       } catch (err) {
         showToast('Could not cancel', 'error');

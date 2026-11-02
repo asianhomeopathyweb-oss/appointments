@@ -12,6 +12,7 @@
 
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from "./lib/firebase-init.js";
+import { generateSlots } from "./slot-grid.js";
 
 export function checkSlot({ existingCount, source }) {
   const count = Number(existingCount) || 0;
@@ -85,27 +86,45 @@ export function invalidateOccupancy(clinicId, dateISO) {
  * @param {string} args.dateISO          "YYYY-MM-DD"
  * @param {string} args.slot             "HH:mm"
  * @param {string} [args.excludeApptId]  ignore this appt (e.g. the one being rescheduled)
- * @returns {Promise<{count:number, conflict:null|{id:string, patientName:string, status:string}}>}
+ * @returns {Promise<{count:number, conflict:null|{id:string, patientName:string, status:string, isDurationConflict:boolean}}>}
  */
 export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptId }) {
   if (!clinicId || !dateISO || !slot) return { count: 0, conflict: null };
 
   const rows = await _loadDay(clinicId, dateISO);
-  const matches = rows.filter(
-    (a) =>
-      a.slot === slot &&
-      a.id !== excludeApptId &&
-      a.status !== "cancelled"
-  );
+  
+  // To check duration overlaps, we need to know the grid slots for this clinic
+  const scheduleSnap = await getDocs(query(collection(db, 'clinicSchedule'), where('clinicId', '==', clinicId)));
+  const schedule = scheduleSnap.docs[0]?.data();
+  const allSlots = schedule ? generateSlots(schedule) : [];
+  const targetIndex = allSlots.indexOf(slot);
 
-  return {
-    count: matches.length,
-    conflict: matches.length
-      ? {
-          id: matches[0].id,
-          patientName: matches[0].patientName || "Patient",
-          status: matches[0].status || "booked"
-        }
-      : null
-  };
+  let count = 0;
+  let conflict = null;
+
+  for (const a of rows) {
+    if (a.id === excludeApptId) continue;
+    if (a.status === 'cancelled') continue;
+
+    const startIndex = allSlots.indexOf(a.slot);
+    if (startIndex === -1) continue;
+
+    const duration = a.durationSlots || 1;
+    const endIndex = startIndex + duration;
+
+    // If target slot falls inside this appointment's time block
+    if (targetIndex !== -1 && targetIndex >= startIndex && targetIndex < endIndex) {
+      count++;
+      if (!conflict) {
+        conflict = {
+          id: a.id,
+          patientName: a.patientName || "Patient",
+          status: a.status || "booked",
+          isDurationConflict: targetIndex !== startIndex
+        };
+      }
+    }
+  }
+
+  return { count, conflict };
 }

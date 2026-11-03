@@ -18,6 +18,16 @@ const path = Astro.url.pathname;
   <link rel="preconnect" href="https://rsms.me/"/>
   <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+  <style>
+    @media (min-width: 768px) {
+      #billing-drawer { height: 90vh !important; max-height: 90vh !important; }
+    }
+    #billing-iframe {
+      display: block;
+      will-change: transform;
+      touch-action: pan-y !important;
+    }
+  </style>
 </head>
 <body class="min-h-screen bg-surface text-ink">
   
@@ -76,10 +86,15 @@ const path = Astro.url.pathname;
         <!-- Divider -->
         <div class="h-px bg-hairline my-2 mx-2"></div>
 
-        <!-- Ecosystem Links -->
+        <!-- Ecosystem Links & Actions -->
+        <button id="sidebar-billing-btn" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover w-full text-left">
+          <i class="bi bi-receipt text-[15px]"></i> <span>Create Invoice</span>
+        </button>
+
         <a href="https://billbook.asianhomeocare.in" target="_blank" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover">
-          <i class="bi bi-receipt text-[15px]"></i> <span>BillBook</span>
+          <i class="bi bi-box-arrow-up-right text-[15px]"></i> <span>BillBook Dashboard</span>
         </a>
+        
         <a href="https://casepapers.asianhomeocare.in" target="_blank" data-admin-only="true" class={`flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover`}>
           <i class="bi bi-file-medical text-[15px]"></i> <span>Case Papers</span>
         </a>
@@ -143,9 +158,14 @@ const path = Astro.url.pathname;
           <div class="h-px bg-hairline my-2 mx-2"></div>
 
           <!-- Ecosystem Links (Mobile) -->
+          <button id="mobile-billing-btn" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover w-full text-left">
+            <i class="bi bi-receipt text-[15px]"></i> <span>Create Invoice</span>
+          </button>
+
           <a href="https://billbook.asianhomeocare.in" target="_blank" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover">
-            <i class="bi bi-receipt text-[15px]"></i> <span>BillBook</span>
+            <i class="bi bi-box-arrow-up-right text-[15px]"></i> <span>BillBook Dashboard</span>
           </a>
+          
           <a href="https://casepapers.asianhomeocare.in" target="_blank" data-admin-only="true" class="flex items-center gap-2.5 px-3 h-10 rounded-lg text-[14px] transition-colors text-ink-mute hover:bg-surface-hover">
             <i class="bi bi-file-medical text-[15px]"></i> <span>Case Papers</span>
           </a>
@@ -180,10 +200,31 @@ const path = Astro.url.pathname;
     </main>
   </div>
 
+  <!-- BILLING IFRAME MODAL (block layout — no flex) -->
+  <div id="billing-backdrop" class="hidden fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm opacity-0 transition-opacity duration-300"></div>
+  
+  <div id="billing-drawer" class="hidden fixed z-[100] inset-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-full md:w-[95vw] md:max-w-[1300px] bg-white md:shadow-2xl md:rounded-2xl md:border md:border-hairline transition-all duration-300 opacity-0 scale-95 md:scale-95 block"
+       style="height: 100dvh; max-height: 100dvh;">
+    <div class="h-[52px] border-b border-hairline flex items-center justify-between px-4 bg-surface-hover/50 absolute top-0 left-0 right-0 z-10">
+      <div class="text-[14px] font-bold text-ink">BillBook — Invoice</div>
+      <button id="billing-close" class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="absolute left-0 right-0 bottom-0 overflow-hidden" style="top: 52px;">
+      <iframe
+        id="billing-iframe"
+        class="w-full h-full border-none block"
+        style="width: 100%; height: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;"
+      ></iframe>
+    </div>
+  </div>
+
   <script>
     import { requireAuth, isAdmin } from '../js/lib/auth-guards.js';
     import { initClinicSwitcher } from '../js/lib/clinic-switcher.js';
     import { signOut } from '../js/lib/auth.js';
+    import { closeBillingDrawer, openBillingDrawer } from '../js/lib/billing-drawer.js';
 
     // Mobile Drawer Logic
     const drawer = document.getElementById('mobile-drawer');
@@ -214,6 +255,21 @@ const path = Astro.url.pathname;
 
     document.querySelectorAll('#mobile-drawer a').forEach(a => {
       a.addEventListener('click', closeDrawer);
+    });
+
+    // Billing Modal Close Button
+    document.getElementById('billing-close')?.addEventListener('click', closeBillingDrawer);
+    document.getElementById('billing-backdrop')?.addEventListener('click', closeBillingDrawer);
+
+    // Sidebar Billing Button (Desktop)
+    document.getElementById('sidebar-billing-btn')?.addEventListener('click', () => {
+      openBillingDrawer(); // Opens with no patient selected
+    });
+
+    // Mobile Sidebar Billing Button
+    document.getElementById('mobile-billing-btn')?.addEventListener('click', () => {
+      closeDrawer();
+      setTimeout(() => openBillingDrawer(), 300);
     });
 
     // Logout logic

@@ -31,6 +31,11 @@ import AppLayout from '../layouts/AppLayout.astro';
               class="w-full h-10 md:h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] md:text-[14px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
               <i class="bi bi-calendar-plus"></i> Book Appointment
             </button>
+
+            <button id="pt-bill" type="button"
+              class="w-full h-10 md:h-11 rounded-xl bg-ink hover:bg-ink/90 text-white text-[13px] md:text-[14px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+              <i class="bi bi-receipt"></i> Generate Bill
+            </button>
             
             <button id="pt-call" type="button"
               class="w-full h-10 md:h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] md:text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
@@ -63,7 +68,7 @@ import AppLayout from '../layouts/AppLayout.astro';
 
   </div>
 
-  <!-- Edit Patient Modal (Added 'hidden' class to both) -->
+  <!-- Edit Patient Modal -->
   <div id="ep-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"></div>
   
   <div id="ep-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
@@ -127,17 +132,17 @@ import AppLayout from '../layouts/AppLayout.astro';
       </div>
 
       <!-- Referral -->
-              <div>
-          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Referral</label>
-          <select id="ep-referral"
-            class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
-            <option value="">— Select —</option>
-            <option value="Google">Google</option>
-            <option value="Website">Website</option>
-            <option value="Referral">Referral</option>
-            <option value="Direct">Direct</option>
-          </select>
-        </div>
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Referral</label>
+        <select id="ep-referral"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+          <option value="">— Select —</option>
+          <option value="Google">Google</option>
+          <option value="Website">Website</option>
+          <option value="Referral">Referral</option>
+          <option value="Direct">Direct</option>
+        </select>
+      </div>
 
     </div>
     

@@ -2,95 +2,127 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Calls">
-  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-[calc(100vh-52px)] overflow-hidden bg-surface">
+  <div class="w-full max-w-[1200px] mx-auto px-3 md:px-8 py-4 md:py-6 flex flex-col h-[calc(100vh-52px)] overflow-hidden bg-surface">
 
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6 shrink-0">
-      <div>
-        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1">Phone</div>
-        <div class="flex items-center gap-3">
-          <div class="text-[22px] font-bold text-ink tracking-tight">Pending Tasks</div>
-          <div id="calls-sub" class="text-[12px] font-semibold text-accent bg-accent-soft px-2 py-0.5 rounded-full">—</div>
+    <div class="flex items-center justify-between gap-3 mb-4 md:mb-6 shrink-0">
+      <div class="min-w-0">
+        <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5 md:mb-1">Phone</div>
+        <div class="flex items-center gap-2 md:gap-3 flex-wrap">
+          <div class="text-[18px] md:text-[22px] font-bold text-ink tracking-tight truncate">Pending Tasks</div>
+          <div id="calls-sub" class="text-[11px] md:text-[12px] font-semibold text-accent bg-accent-soft px-2 py-0.5 rounded-full">—</div>
         </div>
       </div>
       <button id="calls-new" type="button"
-        class="h-10 px-5 rounded-xl bg-ink hover:bg-ink/90 text-white text-[13px] font-bold transition-colors shadow-sm flex items-center gap-2">
-        <i class="bi bi-plus-lg"></i> Add Call
+        class="h-9 md:h-10 px-3 md:px-5 rounded-xl bg-ink hover:bg-ink/90 text-white text-[12px] md:text-[13px] font-bold transition-colors shadow-sm flex items-center gap-1.5 md:gap-2 shrink-0">
+        <i class="bi bi-plus-lg"></i>
+        <span class="hidden sm:inline">Add Call</span>
       </button>
     </div>
 
     <!-- List Container -->
     <div class="flex-1 bg-white rounded-2xl shadow-sm border border-hairline overflow-y-auto">
-      <div id="calls-list" class="divide-y divide-hairline">
+      <div id="calls-list">
         <!-- Filled by JS -->
       </div>
     </div>
 
   </div>
 
-  <!-- New call modal -->
-  <div id="newcall-backdrop" hidden class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"></div>
-  
-  <div id="newcall-modal" hidden
-    class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[min(94vw,500px)]
-           bg-white rounded-2xl shadow-xl border border-hairline overflow-hidden transform transition-all">
-    
-    <div class="px-5 py-4 border-b border-hairline flex items-center justify-between bg-surface-hover/30">
+  <!-- ========================================== -->
+  <!-- New Call Modal — bottom sheet mobile / card desktop -->
+  <!-- ========================================== -->
+  <div id="newcall-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+
+  <div id="newcall-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+           md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
+
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0 flex items-center justify-between">
       <div class="text-[16px] font-bold text-ink">Add Call</div>
       <button id="newcall-close" type="button" aria-label="Close"
-        class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute">
+        class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute shrink-0">
         <i class="bi bi-x-lg text-[16px]"></i>
       </button>
     </div>
-    
-    <div class="p-5 space-y-4">
-      <div>
-        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Patient</label>
+
+    <div class="p-5 space-y-4 overflow-y-auto">
+
+      <!-- Patient search -->
+      <div class="relative">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Patient</label>
         <input id="nc-search" type="text" autocomplete="off" placeholder="Search by name or phone..."
-          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
-        <div id="nc-results" class="mt-2 rounded-xl border border-hairline bg-white overflow-hidden max-h-[180px] overflow-y-auto shadow-sm empty:hidden"></div>
-        <div id="nc-chosen" hidden class="mt-2 px-3 py-2.5 rounded-xl bg-accent-soft text-accent font-medium text-[13px] border border-accent/20"></div>
+          class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" />
+        <div id="nc-results" class="mt-1 rounded-xl border border-hairline bg-white overflow-hidden max-h-[180px] overflow-y-auto shadow-md empty:hidden"></div>
+        <div id="nc-chosen" hidden class="mt-2 px-3 py-2 rounded-xl bg-accent-soft text-accent font-medium text-[12px] border border-accent/20 flex items-center gap-1.5">
+          <i class="bi bi-check-circle-fill"></i>
+          <span id="nc-chosen-name"></span>
+        </div>
       </div>
-      
+
+      <!-- Phone (only shown when no existing patient is selected) -->
+      <div id="nc-phone-wrap">
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Phone Number</label>
+        <input id="nc-phone" type="tel" autocomplete="off" placeholder="Phone number (optional)"
+          class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent" />
+        <div class="text-[11px] text-ink-faint mt-1">Leave blank if patient already exists in the system.</div>
+      </div>
+
+      <!-- Reason -->
       <div>
-        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-2">Reason</label>
+        <label class="block text-[12px] font-medium text-ink-mute mb-1">Reason</label>
         <textarea id="nc-reason" rows="3" placeholder="What did they call about?"
-          class="w-full px-4 py-3 rounded-xl border border-hairline bg-surface text-[14px] resize-none focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"></textarea>
+          class="w-full px-3 py-2.5 rounded-xl border border-hairline bg-surface text-[14px] resize-none focus:outline-none focus:border-accent"></textarea>
       </div>
+
     </div>
-    
-    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3">
+
+    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3 shrink-0">
       <button id="newcall-cancel" type="button"
         class="flex-1 h-10 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
       <button id="newcall-save" type="button" disabled
         class="flex-1 h-10 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">Add Call</button>
     </div>
+
   </div>
 
   <script>
     import { requireAuth } from '../js/lib/auth-guards.js';
     import { getActiveClinicId } from '../js/lib/clinic-context.js';
-    import { listMergedPending, create as createCall } from '../js/calls.js';
+    import { subscribeMergedPending, create as createCall } from '../js/calls.js';
     import { searchByName, searchByPhone } from '../js/patients.js';
     import { showToast } from '../js/lib/toast.js';
     import { esc } from '../js/lib/format.js';
+    import { fmtDate, fmtSlot } from '../js/date-utils.js';
 
     const $ = (sel) => document.querySelector(sel);
 
     const state = {
       clinicId: null,
-      pending: [],
-      newCallPatient: null,
+      pending: { problem: [], scheduled: [] },
+      unsubscribe: null,
+      newCallPatient: null,   // { id, name, phone } when picked from search
       saving: false
     };
 
-    // ---------- list ----------
+    // ============================================================
+    // LIST RENDER — two sections
+    // ============================================================
     function render() {
       const root = $('#calls-list');
       const sub = $('#calls-sub');
-      if (sub) sub.textContent = state.pending.length === 0 ? 'None' : `${state.pending.length} pending`;
+      if (!root) return;
 
-      if (state.pending.length === 0) {
+      const problem = state.pending.problem || [];
+      const scheduled = state.pending.scheduled || [];
+      const total = problem.length + scheduled.length;
+
+      if (sub) {
+        sub.textContent = total === 0 ? 'None' : `${total} pending`;
+      }
+
+      if (total === 0) {
         root.innerHTML = `
           <div class="p-12 text-center flex flex-col items-center justify-center">
             <div class="w-16 h-16 bg-surface-hover rounded-full flex items-center justify-center mb-4">
@@ -100,44 +132,36 @@ import AppLayout from '../layouts/AppLayout.astro';
             <div class="text-[13px] text-ink-mute mb-4">When a patient calls in or has a scheduled call, it will appear here.</div>
             <button id="empty-new-btn" class="h-9 px-4 rounded-lg bg-accent text-white text-[13px] font-bold shadow-sm hover:bg-accent-hover transition-colors">Add Call</button>
           </div>`;
-        
         const emptyBtn = $('#empty-new-btn');
         if (emptyBtn) emptyBtn.addEventListener('click', openModal);
         return;
       }
 
-      root.innerHTML = state.pending.map((c) => {
-        const isProblem = c._type === 'problem';
-        return `
-        <div data-call-id="${esc(c.id)}" data-type="${c._type}"
-          class="flex items-center gap-4 px-4 md:px-6 py-4 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline last:border-b-0">
-          
-          <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-            isProblem ? 'bg-pink-50 text-pink-500' : 'bg-blue-50 text-blue-500'
-          }">
-            <i class="bi ${isProblem ? 'bi-telephone-fill' : 'bi-calendar-check-fill'} text-[15px]"></i>
-          </div>
+      const html = [];
 
-          <div class="flex-1 min-w-0">
-            <div class="text-[15px] font-bold text-ink truncate">${esc(c.patientName || 'Patient')}</div>
-            <div class="text-[13px] text-ink-mute truncate mt-0.5">${
-              isProblem 
-                ? esc(c.reason || 'No reason')
-                : `Scheduled for ${esc(c.date)} at ${esc(c.slot)}`
-            }</div>
+      if (scheduled.length > 0) {
+        html.push(`
+          <div class="px-4 md:px-6 py-2 bg-blue-50 border-y border-blue-100 sticky top-0 z-10">
+            <div class="text-[10px] font-bold tracking-widest uppercase text-blue-700 flex items-center gap-1.5">
+              <i class="bi bi-telephone-fill"></i> Scheduled Calls · ${scheduled.length}
+            </div>
           </div>
-          
-          <div class="shrink-0 mr-2">
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-              isProblem ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'
-            }">${isProblem ? 'Problem' : 'Scheduled'}</span>
-          </div>
+        `);
+        scheduled.forEach(c => html.push(renderRow(c, 'scheduled')));
+      }
 
-          <div class="shrink-0 text-ink-faint">
-            <i class="bi bi-chevron-right text-[16px]"></i>
+      if (problem.length > 0) {
+        html.push(`
+          <div class="px-4 md:px-6 py-2 bg-pink-50 border-y border-pink-100 sticky top-0 z-10">
+            <div class="text-[10px] font-bold tracking-widest uppercase text-pink-700 flex items-center gap-1.5">
+              <i class="bi bi-exclamation-triangle-fill"></i> Problem Calls · ${problem.length}
+            </div>
           </div>
-        </div>`;
-      }).join('');
+        `);
+        problem.forEach(c => html.push(renderRow(c, 'problem')));
+      }
+
+      root.innerHTML = html.join('');
 
       root.querySelectorAll('[data-call-id]').forEach((el) => {
         el.addEventListener('click', () => {
@@ -152,51 +176,126 @@ import AppLayout from '../layouts/AppLayout.astro';
       });
     }
 
-    async function load() {
-      try {
-        state.pending = await listMergedPending(state.clinicId);
-      } catch (err) {
-        state.pending = [];
-      }
-      render();
+    function renderRow(c, type) {
+      const isProblem = type === 'problem';
+      const leftBorder = isProblem ? 'border-l-[3px] border-l-pink-400' : 'border-l-[3px] border-l-blue-400';
+      const iconBg = isProblem ? 'bg-pink-50 text-pink-500' : 'bg-blue-50 text-blue-500';
+      const icon = isProblem ? 'bi-telephone-fill' : 'bi-calendar-check-fill';
+      const badgeCls = isProblem ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700';
+      const badgeLabel = isProblem ? 'Problem' : 'Scheduled';
+
+      const subtitle = isProblem
+        ? (c.reason || 'No reason')
+        : `Scheduled for ${fmtDate(c.date)} at ${fmtSlot(c.slot)}`;
+
+      return `
+        <div data-call-id="${esc(c.id)}" data-type="${esc(type)}"
+          class="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 ${leftBorder} hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline last:border-b-0">
+
+          <div class="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg}">
+            <i class="bi ${icon} text-[14px] md:text-[15px]"></i>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="text-[14px] md:text-[15px] font-bold text-ink truncate">${esc(c.patientName || 'Patient')}</div>
+            <div class="text-[12px] md:text-[13px] text-ink-mute truncate mt-0.5">${esc(subtitle)}</div>
+          </div>
+
+          <div class="shrink-0 hidden sm:block">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${badgeCls}">${badgeLabel}</span>
+          </div>
+
+          <div class="shrink-0 text-ink-faint">
+            <i class="bi bi-chevron-right text-[14px] md:text-[16px]"></i>
+          </div>
+        </div>`;
     }
 
-    // ---------- new call modal ----------
+    // ============================================================
+    // DATA — realtime subscription
+    // ============================================================
+    function startSubscription() {
+      if (state.unsubscribe) {
+        try { state.unsubscribe(); } catch {}
+        state.unsubscribe = null;
+      }
+      state.pending = { problem: [], scheduled: [] };
+      render();
+
+      state.unsubscribe = subscribeMergedPending(
+        state.clinicId,
+        (merged) => {
+          state.pending = merged;
+          render();
+        },
+        (err) => {
+          console.error('[calls-page] subscription failed', err);
+        }
+      );
+    }
+
+    // ============================================================
+    // NEW CALL MODAL
+    // ============================================================
     function openModal() {
       const backdrop = $('#newcall-backdrop');
       const modal = $('#newcall-modal');
-      backdrop.hidden = false;
-      modal.hidden = false;
-      
+      if (!backdrop || !modal) return;
+
+      backdrop.classList.remove('hidden');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
       state.newCallPatient = null;
       $('#nc-search').value = '';
+      $('#nc-phone').value = '';
       $('#nc-reason').value = '';
       $('#nc-results').innerHTML = '';
       $('#nc-chosen').hidden = true;
+      $('#nc-phone-wrap').classList.remove('hidden');
       $('#newcall-save').disabled = true;
-      setTimeout(() => $('#nc-search').focus(), 50);
+
+      setTimeout(() => $('#nc-search').focus(), 150);
     }
 
     function closeModal() {
-      $('#newcall-backdrop').hidden = true;
-      $('#newcall-modal').hidden = true;
+      const backdrop = $('#newcall-backdrop');
+      const modal = $('#newcall-modal');
+      if (!backdrop || !modal) return;
+
+      backdrop.classList.add('hidden');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function updateSaveState() {
+      const nameTyped = $('#nc-search').value.trim().length > 0;
+      const reasonTyped = $('#nc-reason').value.trim().length > 0;
+      const ok = nameTyped && reasonTyped && !state.saving;
+      $('#newcall-save').disabled = !ok;
     }
 
     function wireModal() {
-      $('#calls-new').addEventListener('click', openModal);
-      $('#newcall-close').addEventListener('click', closeModal);
-      $('#newcall-cancel').addEventListener('click', closeModal);
-      $('#newcall-backdrop').addEventListener('click', closeModal);
+      $('#calls-new')?.addEventListener('click', openModal);
+      $('#newcall-close')?.addEventListener('click', closeModal);
+      $('#newcall-cancel')?.addEventListener('click', closeModal);
+      $('#newcall-backdrop')?.addEventListener('click', closeModal);
 
       let timer = null;
-      $('#nc-search').addEventListener('input', (e) => {
+      $('#nc-search')?.addEventListener('input', (e) => {
+        // Typing invalidates any previously picked patient
+        state.newCallPatient = null;
+        $('#nc-chosen').hidden = true;
+        $('#nc-phone-wrap').classList.remove('hidden');
+        updateSaveState();
+
         clearTimeout(timer);
         const q = e.target.value.trim();
         if (q.length < 2) { $('#nc-results').innerHTML = ''; return; }
         timer = setTimeout(() => runSearch(q), 250);
       });
 
-      $('#nc-results').addEventListener('click', (e) => {
+      $('#nc-results')?.addEventListener('click', (e) => {
         const row = e.target.closest('[data-pid]');
         if (!row) return;
         state.newCallPatient = {
@@ -205,20 +304,18 @@ import AppLayout from '../layouts/AppLayout.astro';
           phone: row.getAttribute('data-pphone')
         };
         $('#nc-search').value = state.newCallPatient.name;
+        $('#nc-phone').value = state.newCallPatient.phone || '';
         $('#nc-results').innerHTML = '';
-        const chosen = $('#nc-chosen');
-        chosen.innerHTML = `<i class="bi bi-check-circle-fill mr-1"></i> ${esc(state.newCallPatient.name)}`;
-        chosen.hidden = false;
+        $('#nc-chosen-name').textContent = state.newCallPatient.name;
+        $('#nc-chosen').hidden = false;
+        // Hide the phone field — patient already has a phone on file
+        $('#nc-phone-wrap').classList.add('hidden');
         updateSaveState();
       });
 
-      $('#nc-reason').addEventListener('input', updateSaveState);
-      $('#newcall-save').addEventListener('click', saveCall);
-    }
-
-    function updateSaveState() {
-      const ok = state.newCallPatient && $('#nc-reason').value.trim().length > 0 && !state.saving;
-      $('#newcall-save').disabled = !ok;
+      $('#nc-phone')?.addEventListener('input', updateSaveState);
+      $('#nc-reason')?.addEventListener('input', updateSaveState);
+      $('#newcall-save')?.addEventListener('click', saveCall);
     }
 
     async function runSearch(q) {
@@ -234,51 +331,73 @@ import AppLayout from '../layouts/AppLayout.astro';
         }
         const root = $('#nc-results');
         if (merged.length === 0) {
-          root.innerHTML = `<div class="px-3 py-3 text-[13px] text-ink-faint">No matches found</div>`;
+          root.innerHTML = `<div class="px-3 py-3 text-[13px] text-ink-faint">No matches. You can add this call as a new patient below.</div>`;
           return;
         }
         root.innerHTML = merged.map((p) => `
-          <div data-pid="${p.id}" data-pname="${esc(p.name)}" data-pphone="${esc(p.phone || '')}"
+          <div data-pid="${esc(p.id)}" data-pname="${esc(p.name)}" data-pphone="${esc(p.phone || '')}"
             class="px-4 py-3 hover:bg-surface-hover cursor-pointer border-b border-hairline last:border-b-0 transition-colors">
             <div class="text-[14px] font-bold text-ink">${esc(p.name)}</div>
             ${p.phone ? `<div class="text-[12px] text-ink-mute mt-0.5">${esc(p.phone)}</div>` : ''}
           </div>`).join('');
       } catch (err) {
-        console.error('[calls] search failed:', err);
+        console.error('[calls-page] search failed:', err);
       }
     }
 
     async function saveCall() {
       if (state.saving) return;
+
+      const typedName = $('#nc-search').value.trim();
+      const typedPhone = $('#nc-phone').value.trim();
+      const reason = $('#nc-reason').value.trim();
+
+      if (!typedName || !reason) {
+        showToast('Name and reason are required', 'error');
+        return;
+      }
+
       state.saving = true;
-      $('#newcall-save').textContent = 'Saving...';
-      
+      const saveBtn = $('#newcall-save');
+      saveBtn.textContent = 'Saving...';
+      saveBtn.disabled = true;
+
       try {
-        await createCall({
+        const payload = {
           clinicId: state.clinicId,
-          patientId: state.newCallPatient.id,
-          patientName: state.newCallPatient.name,
-          patientPhone: state.newCallPatient.phone,
-          reason: $('#nc-reason').value.trim()
-        });
+          patientId: state.newCallPatient ? state.newCallPatient.id : null,
+          patientName: state.newCallPatient ? state.newCallPatient.name : typedName,
+          patientPhone: state.newCallPatient ? (state.newCallPatient.phone || '') : typedPhone,
+          reason
+        };
+        await createCall(payload);
         showToast('Call added', 'success');
         closeModal();
-        await load();
+        // Realtime subscription will refresh the list automatically.
       } catch (err) {
+        console.error('[calls-page] save failed:', err);
         showToast('Could not add call', 'error');
       } finally {
         state.saving = false;
-        $('#newcall-save').textContent = 'Add Call';
+        saveBtn.textContent = 'Add Call';
         updateSaveState();
       }
     }
 
-    // ---------- start ----------
+    // ============================================================
+    // START
+    // ============================================================
     (async () => {
       await requireAuth();
       state.clinicId = getActiveClinicId();
       wireModal();
-      await load();
+      startSubscription();
+
+      window.addEventListener('beforeunload', () => {
+        if (state.unsubscribe) {
+          try { state.unsubscribe(); } catch {}
+        }
+      });
     })();
   </script>
 </AppLayout>

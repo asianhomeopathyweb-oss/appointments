@@ -572,6 +572,42 @@ async function saveNewPatientModal() {
   const phone = phoneEl.value.trim();
   if (!name || !phone) return;
 
+  // DUPLICATE CHECK
+  try {
+    const existingByPhone = await searchByPhone(state.clinicId, phone);
+    if (existingByPhone.length > 0) {
+      const match = existingByPhone[0];
+      const proceed = confirm(
+        `A patient with this phone number already exists: ${match.name}. Are you sure you want to create a duplicate?`
+      );
+      if (!proceed) {
+        if (saveBtn) {
+          saveBtn.textContent = 'Create Patient';
+          updateModalSaveState();
+        }
+        return;
+      }
+    } else {
+      // Check by name (exact match)
+      const existingByName = await searchByName(state.clinicId, name, 1);
+      if (existingByName.length > 0 && existingByName[0].name.toLowerCase() === name.toLowerCase()) {
+        const match = existingByName[0];
+        const proceed = confirm(
+          `A patient with this exact name already exists: ${match.name} (${match.phone || 'No phone'}). Are you sure you want to create a duplicate?`
+        );
+        if (!proceed) {
+          if (saveBtn) {
+            saveBtn.textContent = 'Create Patient';
+            updateModalSaveState();
+          }
+          return;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Duplicate check failed', err);
+  }
+
   let finalAge = ageEl ? ageEl.value : '';
   const unit = ageUnitEl ? ageUnitEl.value : 'years';
   if (finalAge) {
@@ -586,6 +622,7 @@ async function saveNewPatientModal() {
   }
 
   try {
+    // Note: 'createPatient' now handles Title Case internally
     const id = await createPatient({
       clinicId: state.clinicId,
       name: name,

@@ -5,18 +5,18 @@ import AppLayout from '../layouts/AppLayout.astro';
   <div class="w-full max-w-[1100px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
 
     <!-- Header -->
-    <div class="flex items-center gap-4 mb-6">
+    <div class="flex items-start gap-3 md:gap-4 mb-5 md:mb-6 flex-wrap">
       <button id="call-close" type="button" aria-label="Close"
         class="w-10 h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent text-ink-mute transition-all">
         <i class="bi bi-arrow-left text-[18px]"></i>
       </button>
-      <div>
-        <div class="text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Call Log</div>
-        <div id="call-name" class="text-[22px] font-bold text-ink tracking-tight">—</div>
-        <div id="call-phone" class="text-[13px] text-ink-mute mt-0.5">—</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Call Log</div>
+        <div id="call-name" class="text-[18px] md:text-[22px] font-bold text-ink tracking-tight truncate">—</div>
+        <div id="call-phone" class="text-[12px] md:text-[13px] text-ink-mute mt-0.5">—</div>
       </div>
-      <div class="ml-auto flex items-center gap-2">
-        <span id="call-status" class="text-[12px] font-bold uppercase tracking-widest text-ink-mute bg-surface-hover px-3 py-1 rounded-full">—</span>
+      <div class="shrink-0 ml-auto">
+        <span id="call-status" class="text-[11px] md:text-[12px] font-bold uppercase tracking-widest text-ink-mute bg-surface-hover px-2 md:px-3 py-1 rounded-full">—</span>
       </div>
     </div>
 

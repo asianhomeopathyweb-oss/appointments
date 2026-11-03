@@ -98,18 +98,29 @@ import AppLayout from '../layouts/AppLayout.astro';
             </div>
           </div>
 
-          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between relative overflow-hidden col-span-2">
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute inset-0 bg-red-50/50"></div>
+            <div class="relative z-10">
+              <div class="text-[10px] font-bold tracking-widest text-red-600 uppercase mb-2 flex items-center gap-1">
+                <i class="bi bi-exclamation-circle-fill"></i> Unpaid
+              </div>
+              <div id="stat-unpaid" class="text-[26px] font-extrabold text-red-600 tracking-tight tnum leading-none">—</div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4 flex flex-col justify-between relative overflow-hidden">
             <div class="absolute inset-0 bg-pink-50/50"></div>
             <div class="relative z-10">
               <div class="text-[10px] font-bold tracking-widest text-pink-600 uppercase mb-2">Calls</div>
               <div id="stat-calls" class="text-[26px] font-extrabold text-pink-600 tracking-tight tnum leading-none">—</div>
+              <div id="stat-calls-sub" class="text-[10px] font-medium text-pink-500/80 mt-1 tnum">—</div>
             </div>
           </div>
         </div>
 
-        <!-- Weekly Trend Chart -->
+        <!-- Last 7 Days Trend -->
         <div class="bg-white rounded-2xl shadow-sm border border-hairline p-4">
-          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-4">Weekly Trend</div>
+          <div class="text-[11px] font-bold tracking-widest text-ink-mute uppercase mb-4">Last 7 Days</div>
           <div id="dash-trend" class="h-[100px] flex items-end justify-between gap-1 md:gap-2">
             <!-- Filled by JS -->
           </div>
@@ -148,14 +159,13 @@ import AppLayout from '../layouts/AppLayout.astro';
     import { db } from '../js/lib/firebase-init.js';
 
     const $ = (sel) => document.querySelector(sel);
-    
-    let state = {
+
+    const state = {
       clinicId: null,
       appointments: [],
       followUps: [],
       calls: [],           // Problem calls
       callAppts: [],       // Scheduled call-mode appointments
-      patients: [],
       currentRange: { start: '', end: '', label: 'Today' }
     };
 
@@ -164,17 +174,17 @@ import AppLayout from '../layouts/AppLayout.astro';
       const y = today.getFullYear();
       const m = today.getMonth();
       const d = today.getDate();
-      
+
       const fmt = (dateObj) => {
         const yy = dateObj.getFullYear();
         const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
         const dd = String(dateObj.getDate()).padStart(2, '0');
         return `${yy}-${mm}-${dd}`;
       };
-      
+
       const startOfWeek = new Date(today);
       startOfWeek.setDate(d - today.getDay());
-      
+
       switch(filterVal) {
         case 'today': return { start: fmt(today), end: fmt(today), label: 'Today' };
         case 'yesterday': { const yd = new Date(today); yd.setDate(d - 1); return { start: fmt(yd), end: fmt(yd), label: 'Yesterday' }; }
@@ -199,20 +209,19 @@ import AppLayout from '../layouts/AppLayout.astro';
       $('#dash-loading').classList.remove('hidden');
       try {
         const cId = state.clinicId;
-        const [appts, fus, cls, pats] = await Promise.all([
+        // patients query removed — unused in this dashboard
+        const [appts, fus, cls] = await Promise.all([
           getDocs(query(collection(db, 'appointments'), where('clinicId', '==', cId))),
           getDocs(query(collection(db, 'followUps'), where('clinicId', '==', cId))),
-          getDocs(query(collection(db, 'calls'), where('clinicId', '==', cId))),
-          getDocs(query(collection(db, 'patients'), where('clinicId', '==', cId)))
+          getDocs(query(collection(db, 'calls'), where('clinicId', '==', cId)))
         ]);
-        
+
         const allAppts = appts.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
         state.appointments = allAppts;
         state.callAppts = allAppts.filter(x => x.mode === 'call');
-        
+
         state.followUps = fus.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
         state.calls = cls.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
-        state.patients = pats.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.deleted !== true);
       } catch (err) {
         console.error(err);
       } finally {
@@ -223,14 +232,14 @@ import AppLayout from '../layouts/AppLayout.astro';
     function renderAppointmentList() {
       const list = $('#dash-list');
       const { start, end } = state.currentRange;
-      
+
       const rangeAppts = state.appointments.filter(a => a.date >= start && a.date <= end);
-      
+
       if (rangeAppts.length === 0) {
         list.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No appointments in this range.</div>`;
         return;
       }
-      
+
       rangeAppts.sort((a, b) => (a.date + a.slot).localeCompare(b.date + b.slot));
       list.innerHTML = rangeAppts.map(a => `
         <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='/appointment?id=${a.id}'">
@@ -250,21 +259,29 @@ import AppLayout from '../layouts/AppLayout.astro';
     }
 
     function renderCallRows(targetEl, merged) {
+      if (merged.length === 0) {
+        targetEl.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No calls in this range.</div>`;
+        return;
+      }
+
       targetEl.innerHTML = merged.map(item => {
         const isProblem = item._type === 'problem';
-        
-        let timeStr, dateStr;
+
+        let timeStr = '—', dateStr = '';
         if (isProblem) {
-          const cDate = new Date(item.createdAt.seconds * 1000);
-          timeStr = `${String(cDate.getHours()).padStart(2,'0')}:${String(cDate.getMinutes()).padStart(2,'0')}`;
-          dateStr = `${String(cDate.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cDate.getMonth()]}`;
+          // Defensive: legacy docs may lack createdAt
+          if (item.createdAt && typeof item.createdAt.seconds === 'number') {
+            const cDate = new Date(item.createdAt.seconds * 1000);
+            timeStr = `${String(cDate.getHours()).padStart(2,'0')}:${String(cDate.getMinutes()).padStart(2,'0')}`;
+            dateStr = `${String(cDate.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cDate.getMonth()]}`;
+          }
         } else {
           timeStr = fmtSlot(item.slot);
           dateStr = fmtDate(item.date);
         }
-        
+
         const url = isProblem ? `/call?id=${item.id}` : `/appointment?id=${item.id}`;
-        
+
         return `
           <div class="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors border-b border-hairline/50 last:border-b-0 cursor-pointer" onclick="window.location.href='${url}'">
             <div class="w-[70px] shrink-0">
@@ -288,55 +305,64 @@ import AppLayout from '../layouts/AppLayout.astro';
     function renderCallsFiltered() {
       const targetEl = $('#dash-calls-desktop');
       if (!targetEl) return;
-      
+
       const { start, end } = state.currentRange;
-      
+
+      // Problem calls in range, pending only
       const rangeCalls = state.calls.filter(c => {
-        if (!c.createdAt) return false;
+        if (!c.createdAt || typeof c.createdAt.seconds !== 'number') return false;
+        if (c.status !== 'pending') return false;
         const cDate = new Date(c.createdAt.seconds * 1000);
         const iso = cDate.toISOString().split('T')[0];
         return iso >= start && iso <= end;
       }).map(c => ({ ...c, _type: 'problem' }));
 
-      const rangeCallAppts = state.callAppts.filter(a => a.date >= start && a.date <= end)
-        .map(a => ({ ...a, _type: 'scheduled' }));
+      // Scheduled call-mode appts in range, booked only (matches mobile)
+      const rangeCallAppts = state.callAppts.filter(a =>
+        a.date >= start && a.date <= end && a.status === 'booked'
+      ).map(a => ({ ...a, _type: 'scheduled' }));
 
       const merged = [...rangeCalls, ...rangeCallAppts];
-      
+
       if (merged.length === 0) {
-        targetEl.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No calls in this range.</div>`;
+        targetEl.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No pending calls.</div>`;
         return;
       }
-      
+
       merged.sort((a, b) => {
         const aTime = a.createdAt?.seconds || (a.date ? new Date(a.date).getTime()/1000 : 0);
         const bTime = b.createdAt?.seconds || (b.date ? new Date(b.date).getTime()/1000 : 0);
         return bTime - aTime;
       });
-      
+
       renderCallRows(targetEl, merged);
     }
 
     function renderCallsMobile() {
       const targetEl = $('#dash-mobile-calls');
       if (!targetEl) return;
-      
-      const pendingProblems = state.calls.filter(c => c.status === 'pending').map(c => ({ ...c, _type: 'problem' }));
-      const pendingScheduled = state.callAppts.filter(a => a.status === 'booked').map(a => ({ ...a, _type: 'scheduled' }));
+
+      const pendingProblems = state.calls
+        .filter(c => c.status === 'pending')
+        .map(c => ({ ...c, _type: 'problem' }));
+
+      const pendingScheduled = state.callAppts
+        .filter(a => a.status === 'booked' && a.date >= todayISO())
+        .map(a => ({ ...a, _type: 'scheduled' }));
 
       const merged = [...pendingProblems, ...pendingScheduled];
-      
+
       if (merged.length === 0) {
         targetEl.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No pending calls.</div>`;
         return;
       }
-      
+
       merged.sort((a, b) => {
         const aTime = a.createdAt?.seconds || (a.date ? new Date(a.date).getTime()/1000 : 0);
         const bTime = b.createdAt?.seconds || (b.date ? new Date(b.date).getTime()/1000 : 0);
         return bTime - aTime;
       });
-      
+
       renderCallRows(targetEl, merged);
     }
 
@@ -344,34 +370,52 @@ import AppLayout from '../layouts/AppLayout.astro';
       const { start, end } = state.currentRange;
       const today = todayISO();
 
-      // 1. Metrics
+      // ---- 1. Metrics ----
       const rangeAppts = state.appointments.filter(a => a.date >= start && a.date <= end);
-      
+
       const total = rangeAppts.length;
       const seen = rangeAppts.filter(a => a.status === 'seen').length;
       const newPts = rangeAppts.filter(a => a.type === 'new').length;
-      
+
       const pendingFu = state.followUps.filter(f => f.dueDate >= start && f.dueDate <= end && f.status === 'pending').length;
-      
-      const pendingCallsCount = state.calls.filter(c => {
-        if (!c.createdAt || c.status !== 'pending') return false;
+
+      // Unpaid: seen but no Invoice / No Bill tag
+      const unpaid = rangeAppts.filter(a =>
+        a.status === 'seen' &&
+        !(a.notes && (a.notes.includes('Invoice:') || a.notes.includes('[No Bill]')))
+      ).length;
+
+      // Calls split
+      const problemCallsInRange = state.calls.filter(c => {
+        if (!c.createdAt || typeof c.createdAt.seconds !== 'number') return false;
+        if (c.status !== 'pending') return false;
         const cDate = new Date(c.createdAt.seconds * 1000);
         const iso = cDate.toISOString().split('T')[0];
         return iso >= start && iso <= end;
-      }).length + state.callAppts.filter(a => a.date >= start && a.date <= end && a.status === 'booked').length;
+      }).length;
+
+      const scheduledCallsInRange = state.callAppts.filter(a =>
+        a.date >= start && a.date <= end && a.status === 'booked'
+      ).length;
+
+      const totalCalls = problemCallsInRange + scheduledCallsInRange;
 
       $('#stat-total').textContent = total;
       $('#stat-seen').textContent = seen;
       $('#stat-new').textContent = newPts;
       $('#stat-fu').textContent = pendingFu;
-      $('#stat-calls').textContent = pendingCallsCount;
+      $('#stat-unpaid').textContent = unpaid;
+      $('#stat-calls').textContent = totalCalls;
+      $('#stat-calls-sub').textContent =
+        totalCalls === 0 ? 'none pending'
+        : `${problemCallsInRange} problem · ${scheduledCallsInRange} scheduled`;
 
-      // 2. Lists
+      // ---- 2. Lists ----
       renderAppointmentList();
       renderCallsFiltered();
       renderCallsMobile();
 
-      // 3. Weekly Trend
+      // ---- 3. Last 7 Days Trend (always last 7, regardless of filter) ----
       const trendEl = $('#dash-trend');
       const last7 = [];
       for (let i = 6; i >= 0; i--) {
@@ -380,7 +424,7 @@ import AppLayout from '../layouts/AppLayout.astro';
         last7.push({ date: d, count });
       }
       const maxTrend = Math.max(...last7.map(x => x.count), 1);
-      
+
       trendEl.innerHTML = last7.map(t => {
         const h = (t.count / maxTrend) * 100;
         const day = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][isoToDate(t.date).getDay()];
@@ -392,18 +436,18 @@ import AppLayout from '../layouts/AppLayout.astro';
           </div>`;
       }).join('');
 
-      // 4. New vs Returning Mix
+      // ---- 4. New vs Returning Mix ----
       let newCount = 0;
       let returningCount = 0;
-      
-      const uniquePatients = new Set(rangeAppts.map(a => a.patientId));
+
+      const uniquePatients = new Set(rangeAppts.map(a => a.patientId).filter(Boolean));
       uniquePatients.forEach(pId => {
         const apptsForP = rangeAppts.filter(a => a.patientId === pId);
         const isNew = apptsForP.some(a => a.type === 'new');
         if (isNew) newCount++;
         else returningCount++;
       });
-      
+
       const totalUnique = newCount + returningCount || 1;
       const newPct = Math.round((newCount / totalUnique) * 100);
       const retPct = 100 - newPct;
@@ -417,16 +461,16 @@ import AppLayout from '../layouts/AppLayout.astro';
     (async () => {
       const user = await requireAuth();
       if (!isAdmin()) { location.replace('/day'); return; }
-      
+
       state.clinicId = getActiveClinicId();
       await loadData();
-      
+
       const filterEl = $('#dash-filter');
       filterEl.addEventListener('change', () => {
         state.currentRange = getDateRange(filterEl.value);
         render();
       });
-      
+
       state.currentRange = getDateRange('today');
       render();
     })();

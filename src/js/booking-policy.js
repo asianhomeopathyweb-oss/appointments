@@ -2,7 +2,7 @@
 // Booking policy
 // ============================================================
 
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from "./lib/firebase-init.js";
 import { generateSlots } from "./slot-grid.js";
 
@@ -49,15 +49,16 @@ async function _loadDay(clinicId, dateISO) {
   const now = Date.now();
   if (hit && now - hit.at < 30_000) return hit.rows;
 
+  // SAFE: only query by clinicId (single field), then filter by
+  // date and deleted in JavaScript. This avoids composite indexes.
   const q = query(
     collection(db, "appointments"),
-    where("clinicId", "==", clinicId),
-    where("date", "==", dateISO)
+    where("clinicId", "==", clinicId)
   );
   const snap = await getDocs(q);
   const rows = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
-    .filter((a) => a.deleted !== true);
+    .filter((a) => a.deleted !== true && a.date === dateISO);
   _cache.set(key, { at: now, rows });
   return rows;
 }
@@ -70,9 +71,11 @@ export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptI
   if (!clinicId || !dateISO || !slot) return { count: 0, conflict: null };
 
   const rows = await _loadDay(clinicId, dateISO);
-  
-  const scheduleSnap = await getDocs(query(collection(db, 'clinicSchedule'), where('clinicId', '==', clinicId)));
-  const schedule = scheduleSnap.docs[0]?.data();
+
+  // SAFE: clinicSchedule docs are keyed by clinicId as the document ID
+  // (see loadSchedule in day-view.js). Read by doc, not by where().
+  const scheduleSnap = await getDoc(doc(db, "clinicSchedule", clinicId));
+  const schedule = scheduleSnap.exists() ? scheduleSnap.data() : null;
   const allSlots = schedule ? generateSlots(schedule) : [];
   const targetIndex = allSlots.indexOf(slot);
 
@@ -91,9 +94,9 @@ export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptI
 
     if (targetIndex !== -1 && targetIndex >= startIndex && targetIndex < endIndex) {
       count++;
-      
+
       const isDurationConflict = targetIndex !== startIndex;
-      
+
       // Prioritize the duration conflict in the conflict object
       if (!conflict || (isDurationConflict && !conflict.isDurationConflict)) {
         conflict = {

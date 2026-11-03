@@ -7,12 +7,16 @@ import { me } from './lib/auth-guards.js';
 import { getActiveClinicId, getActiveClinic } from './lib/clinic-context.js';
 import { subscribeForDay, updateStatus, softDelete, reschedule as rescheduleAppt } from './appointments.js';
 import { createFromVisit, findPendingForPatient, supersede } from './followups.js';
-import { create as createCall, listMergedPending, resolve as resolveCall } from './calls.js';
+import { create as createCall, subscribeMergedPending, resolve as resolveCall, convertScheduledToVisit } from './calls.js';
 import { searchByName } from './patients.js';
+import { openBillingDrawer } from './lib/billing-drawer.js';
 import { generateSlots, isDayOpen } from './slot-grid.js';
 import { todayISO, addDays, fmtDate, fmtSlot, isToday, isoToDate, intervalToDate } from './date-utils.js';
 import { showToast } from './lib/toast.js';
 import { checkSlotOccupancy, invalidateOccupancy } from './booking-policy.js';
+import { startInvoiceSync } from './lib/invoice-sync.js';
+import { doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { db } from './lib/firebase-init.js';
 
 const state = {
   dateISO: todayISO(),
@@ -20,12 +24,15 @@ const state = {
   clinic: null,
   schedule: null,
   appointments: [],
-  pendingCalls: [],
+  pendingCalls: { problem: [], scheduled: [] },
   unsubscribe: null,
-  activeAppt: null,
+  callsUnsubscribe: null,
+  activeAppt: null,       // appt shown in row action modal
   activeCall: null,
+  billingAppt: null,      // appt shown in billing prompt (separate from activeAppt)
   pendingFollowup: null,
-  qcPatient: null // For Quick Add Call
+  qcPatient: null,
+  cameFromFollowup: false
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -46,11 +53,14 @@ export async function startDayView() {
   wireRowModal();
   wireQuickCallModal();
   wireCallActionModal();
-  
+  wireBillingSync();
+  wireBillingPromptModal();
+
   renderHeader();
   renderGrid();
-  loadCallsPanel(); // Load the right-side panel
   subscribe();
+  startCallsSubscription();
+  startInvoiceSync(state.clinicId, () => state.appointments);
 }
 
 function readQueryParams() {
@@ -153,7 +163,7 @@ function renderGrid() {
           <td class="px-4 md:px-6 py-3 md:py-4 text-[13px] md:text-[14px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)}</td>
           <td colspan="4" class="px-4 md:px-6 py-3 md:py-4 text-[13px] md:text-[14px] text-ink-faint italic group-hover:text-accent">Click to book...</td>
         </tr>`;
-      
+
       mobileHtml += `
         <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer border-b border-hairline last:border-0" data-empty-slot="${slot}">
           <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap">${fmtSlot(slot)}</div>
@@ -164,25 +174,29 @@ function renderGrid() {
         const status = a.status || 'booked';
         const isSeen = status === 'seen';
         const isCancelled = status === 'cancelled';
+        const hasInvoice = a.notes && (a.notes.includes('Invoice:') || a.notes.includes('[No Bill]'));
 
-        const desktopActions = isCancelled
-          ? `<button data-action="rebook" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
-               <i class="bi bi-arrow-counterclockwise"></i> Re-book
-             </button>`
-          : isSeen
+        let statusBadge = '';
+        if (isCancelled) {
+          statusBadge = `<span class="text-[11px] md:text-[13px] font-bold text-red-500 uppercase">Cancelled</span>`;
+        } else if (isSeen) {
+          statusBadge = hasInvoice
             ? `<span class="text-[11px] md:text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
-            : `
-              <div class="hidden md:flex flex-nowrap gap-2 justify-end">
-                 <button data-action="seen" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
-                   <i class="bi bi-check-circle-fill"></i> Complete
-                 </button>
-                 <button data-action="reschedule" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-orange-400 hover:bg-orange-500 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
-                   <i class="bi bi-clock-fill"></i> Reschedule
-                 </button>
-                 <button data-action="delete" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
-                   <i class="bi bi-trash-fill"></i> Delete
-                 </button>
-              </div>`;
+            : `<span class="text-[11px] md:text-[13px] font-bold text-orange-500 uppercase flex items-center gap-1"><i class="bi bi-exclamation-circle-fill"></i> Unpaid</span>`;
+        } else {
+          statusBadge = `
+            <div class="hidden md:flex flex-nowrap gap-2 justify-end">
+               <button data-action="seen" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+                 <i class="bi bi-check-circle-fill"></i> Complete
+               </button>
+               <button data-action="reschedule" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-orange-400 hover:bg-orange-500 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+                 <i class="bi bi-clock-fill"></i> Reschedule
+               </button>
+               <button data-action="delete" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+                 <i class="bi bi-trash-fill"></i> Delete
+               </button>
+            </div>`;
+        }
 
         tableHtml += `
           <tr class="hover:bg-surface-hover/30 transition-colors border-b border-hairline cursor-pointer group" data-appt-id="${a.id}">
@@ -202,12 +216,12 @@ function renderGrid() {
               ${esc(a.patientPhone || '—')}
             </td>
             <td class="px-4 md:px-6 py-2.5 md:py-3 text-right">
-               ${desktopActions}
+               ${statusBadge}
             </td>
           </tr>`;
 
         mobileHtml += `
-          <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0 ${isSeen ? 'opacity-50 grayscale' : ''}" data-appt-id="${a.id}">
+          <div class="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover/30 transition-colors cursor-pointer group border-b border-hairline last:border-0 ${isSeen && hasInvoice ? 'opacity-50 grayscale' : ''}" data-appt-id="${a.id}">
             <div class="w-[60px] shrink-0 text-[13px] font-bold text-ink whitespace-nowrap ${isCancelled ? 'opacity-50' : ''}">
               ${fmtSlot(slot)}
             </div>
@@ -215,10 +229,12 @@ function renderGrid() {
               ${esc(a.patientName)}
             </div>
             <div class="shrink-0 flex items-center gap-1">
-               ${isCancelled 
-                 ? `<button data-action="rebook" data-id="${a.id}" class="px-2 py-1 rounded bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm hover:bg-red-600 transition-colors">Re-book</button>` 
+               ${isCancelled
+                 ? `<button data-action="rebook" data-id="${a.id}" class="px-2 py-1 rounded bg-red-500 text-white text-[9px] font-bold uppercase tracking-wider shadow-sm hover:bg-red-600 transition-colors">Re-book</button>`
                  : isSeen
-                   ? `<span class="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1"><i class="bi bi-check-circle-fill"></i> Done</span>`
+                   ? (hasInvoice
+                       ? `<span class="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1"><i class="bi bi-check-circle-fill"></i> Done</span>`
+                       : `<span class="px-2 py-1 rounded bg-orange-100 text-orange-700 text-[9px] font-bold uppercase tracking-wider flex items-center gap-1"><i class="bi bi-exclamation-circle-fill"></i> Unpaid</span>`)
                    : `<span class="px-1.5 py-0.5 rounded bg-blue-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.type === 'new' ? 'N' : 'F'}</span>
                       <span class="px-1.5 py-0.5 rounded bg-pink-500 text-white text-[9px] font-bold uppercase tracking-wider">${a.mode === 'call' ? 'C' : 'V'}</span>`}
             </div>
@@ -265,16 +281,129 @@ function renderGrid() {
 }
 
 // ============================================================
-// CALLS PANEL (Right Side)
+// BILLING SYNC LOGIC
+// ============================================================
+function wireBillingSync() {
+  window.addEventListener('invoice-saved', async (e) => {
+    const { invoiceId, appointmentId } = e.detail;
+    if (!appointmentId) return;
+    if (!invoiceId) return;
+
+    const appt = state.appointments.find(a => a.id === appointmentId);
+    if (!appt) return;
+
+    const existingNotes = appt.notes || '';
+    const cleanNotes = existingNotes.replace(/Invoice:\s*\S+/g, '').trim();
+    const newNotes = (cleanNotes + ` Invoice: ${invoiceId}`).trim();
+
+    try {
+      await updateDoc(doc(db, 'appointments', appointmentId), {
+        notes: newNotes
+      });
+      state.cameFromFollowup = false;
+    } catch (err) {
+      console.error('Failed to sync invoice with appointment:', err);
+    }
+  });
+
+  window.addEventListener('billing-drawer-closed', () => {
+    state.cameFromFollowup = false;
+  });
+}
+
+// ============================================================
+// BILLING PROMPT MODAL
 // ============================================================
 
-async function loadCallsPanel() {
-  try {
-    state.pendingCalls = await listMergedPending(state.clinicId);
-    renderCallsPanel();
-  } catch (err) {
-    console.error('[day-view] load calls failed', err);
+function openBillingPrompt(appt) {
+  state.billingAppt = appt;
+  $('#bp-backdrop').classList.remove('hidden');
+  $('#bp-modal').classList.remove('hidden');
+  $('#bp-modal').classList.add('flex');
+}
+
+function closeBillingPrompt() {
+  $('#bp-backdrop').classList.add('hidden');
+  $('#bp-modal').classList.add('hidden');
+  $('#bp-modal').classList.remove('flex');
+}
+
+function wireBillingPromptModal() {
+  $('#bp-backdrop')?.addEventListener('click', () => {
+    closeBillingPrompt();
+    state.billingAppt = null;
+  });
+
+  $('#bp-btn-bill')?.addEventListener('click', () => {
+    const appt = state.billingAppt;
+    if (!appt) return;
+
+    closeBillingPrompt();
+    state.cameFromFollowup = true;
+    openBillingDrawer(appt.patientId, appt.id);
+  });
+
+  $('#bp-btn-nobill')?.addEventListener('click', async () => {
+    const appt = state.billingAppt;
+    if (!appt) return;
+
+    closeBillingPrompt();
+
+    try {
+      const existingNotes = appt.notes || '';
+      const cleanNotes = existingNotes.replace(/Invoice:\s*\S+/g, '').replace(/\[No Bill\]/g, '').trim();
+      const newNotes = (cleanNotes + ' [No Bill]').trim();
+      await updateDoc(doc(db, 'appointments', appt.id), { notes: newNotes });
+      showToast('Marked as No Bill', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Could not update', 'error');
+    } finally {
+      state.billingAppt = null;
+    }
+  });
+
+  $('#bp-btn-close')?.addEventListener('click', () => {
+    closeBillingPrompt();
+    state.billingAppt = null;
+    showToast('Left as Unpaid', 'info');
+  });
+}
+
+// ============================================================
+// CALLS PANEL (Right Side) — realtime, two sections
+// ============================================================
+
+function startCallsSubscription() {
+  if (state.callsUnsubscribe) {
+    try { state.callsUnsubscribe(); } catch {}
+    state.callsUnsubscribe = null;
   }
+  state.pendingCalls = { problem: [], scheduled: [] };
+  renderCallsPanel();
+
+  state.callsUnsubscribe = subscribeMergedPending(
+    state.clinicId,
+    (merged) => {
+      state.pendingCalls = merged;
+      renderCallsPanel();
+    },
+    (err) => {
+      console.error('[day-view] calls subscription failed', err);
+    }
+  );
+}
+
+function stopCallsSubscription() {
+  if (state.callsUnsubscribe) {
+    try { state.callsUnsubscribe(); } catch {}
+    state.callsUnsubscribe = null;
+  }
+}
+
+// Kept for backward compatibility — panel is realtime now.
+async function loadCallsPanel() {
+  // no-op
 }
 
 function renderCallsPanel() {
@@ -282,56 +411,103 @@ function renderCallsPanel() {
   const countEl = $('#calls-panel-count');
   if (!root) return;
 
+  const problem = state.pendingCalls.problem || [];
+  const scheduled = state.pendingCalls.scheduled || [];
+  const total = problem.length + scheduled.length;
+
   if (countEl) {
-    countEl.textContent = state.pendingCalls.length;
-    if (state.pendingCalls.length > 0) countEl.classList.remove('hidden');
+    countEl.textContent = total;
+    if (total > 0) countEl.classList.remove('hidden');
     else countEl.classList.add('hidden');
   }
 
-  if (state.pendingCalls.length === 0) {
+  if (total === 0) {
     root.innerHTML = `<div class="p-8 text-center text-ink-faint text-[13px]">No pending calls.</div>`;
     return;
   }
 
-  root.innerHTML = state.pendingCalls.map(c => {
-    const isProblem = c._type === 'problem';
-    let timeStr, dateStr;
-    
-    if (isProblem) {
-      const cDate = new Date(c.createdAt.seconds * 1000);
-      timeStr = `${String(cDate.getHours()).padStart(2,'0')}:${String(cDate.getMinutes()).padStart(2,'0')}`;
-      dateStr = `${String(cDate.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][cDate.getMonth()]}`;
-    } else {
-      timeStr = fmtSlot(c.slot);
-      dateStr = fmtDate(c.date);
-    }
+  const html = [];
 
-    return `
-      <div class="flex items-start gap-3 px-4 py-3 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline/50 last:border-b-0" data-call-id="${c.id}" data-type="${c._type}">
-        <div class="w-[50px] shrink-0 pt-0.5">
-          <div class="text-[12px] font-bold text-ink tnum">${timeStr}</div>
-          <div class="text-[10px] text-ink-faint tnum">${dateStr}</div>
+  if (scheduled.length > 0) {
+    html.push(`
+      <div class="px-4 py-2 bg-blue-50 border-b border-blue-100 sticky top-0 z-10">
+        <div class="text-[10px] font-bold tracking-widest uppercase text-blue-700 flex items-center gap-1.5">
+          <i class="bi bi-telephone-fill"></i> Scheduled Calls · ${scheduled.length}
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="text-[13.5px] font-bold text-ink truncate">${esc(c.patientName)}</div>
-          <div class="text-[11px] text-ink-mute truncate">${esc(isProblem ? c.reason || 'No reason' : 'Scheduled Call')}</div>
+      </div>
+    `);
+    scheduled.forEach(c => {
+      html.push(renderCallRow(c, 'scheduled'));
+    });
+  }
+
+  if (problem.length > 0) {
+    html.push(`
+      <div class="px-4 py-2 bg-pink-50 border-b border-pink-100 sticky top-0 z-10">
+        <div class="text-[10px] font-bold tracking-widest uppercase text-pink-700 flex items-center gap-1.5">
+          <i class="bi bi-exclamation-triangle-fill"></i> Problem Calls · ${problem.length}
         </div>
-        <div class="shrink-0">
-          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-            isProblem ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'
-          }">${isProblem ? 'P' : 'S'}</span>
-        </div>
-      </div>`;
-  }).join('');
+      </div>
+    `);
+    problem.forEach(c => {
+      html.push(renderCallRow(c, 'problem'));
+    });
+  }
+
+  root.innerHTML = html.join('');
 
   root.querySelectorAll('[data-call-id]').forEach(el => {
     el.addEventListener('click', () => {
       const type = el.getAttribute('data-type');
       const id = el.getAttribute('data-call-id');
-      const call = state.pendingCalls.find(c => c.id === id && c._type === type);
+      const arr = type === 'problem' ? state.pendingCalls.problem : state.pendingCalls.scheduled;
+      const call = (arr || []).find(c => c.id === id);
       if (call) openCallActionModal(call);
     });
   });
+}
+
+function renderCallRow(c, type) {
+  const isProblem = type === 'problem';
+  let timeStr = '';
+  let dateStr = '';
+
+  if (isProblem) {
+    if (c.createdAt && typeof c.createdAt.seconds === 'number') {
+      const d = new Date(c.createdAt.seconds * 1000);
+      timeStr = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      dateStr = `${String(d.getDate()).padStart(2,'0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`;
+    } else {
+      timeStr = '—';
+      dateStr = '';
+    }
+  } else {
+    timeStr = fmtSlot(c.slot);
+    dateStr = fmtDate(c.date);
+  }
+
+  const subtitle = isProblem
+    ? (c.reason || 'No reason')
+    : 'Scheduled Call';
+
+  const leftBorder = isProblem ? 'border-l-[3px] border-l-pink-400' : 'border-l-[3px] border-l-blue-400';
+  const badgeCls = isProblem ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700';
+  const badgeLabel = isProblem ? 'P' : 'S';
+
+  return `
+    <div class="flex items-start gap-3 px-4 py-3 ${leftBorder} hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline/50 last:border-b-0" data-call-id="${c.id}" data-type="${type}">
+      <div class="w-[50px] shrink-0 pt-0.5">
+        <div class="text-[12px] font-bold text-ink tnum">${timeStr}</div>
+        <div class="text-[10px] text-ink-faint tnum">${dateStr}</div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[13.5px] font-bold text-ink truncate">${esc(c.patientName)}</div>
+        <div class="text-[11px] text-ink-mute truncate">${esc(subtitle)}</div>
+      </div>
+      <div class="shrink-0">
+        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${badgeCls}">${badgeLabel}</span>
+      </div>
+    </div>`;
 }
 
 // ============================================================
@@ -343,9 +519,32 @@ function openCallActionModal(call) {
   const isProblem = call._type === 'problem';
 
   $('#ca-name').textContent = call.patientName || 'Patient';
-  $('#ca-reason').textContent = isProblem ? (call.reason || 'No reason') : `Scheduled for ${call.date} at ${call.slot}`;
+  $('#ca-reason').textContent = isProblem
+    ? (call.reason || 'No reason')
+    : `Scheduled for ${fmtDate(call.date)} at ${fmtSlot(call.slot)}`;
+
   $('#ca-type').textContent = isProblem ? 'Problem Call' : 'Scheduled Call';
   $('#ca-type').className = `px-2 py-0.5 rounded text-white text-[9px] font-bold uppercase ${isProblem ? 'bg-pink-500' : 'bg-blue-500'}`;
+
+  const btnComplete = $('#ca-btn-complete');
+  const btnConvert = $('#ca-btn-convert');
+  const btnCancel = $('#ca-btn-cancel');
+
+  if (btnComplete) {
+    btnComplete.innerHTML = isProblem
+      ? `<i class="bi bi-check-circle-fill"></i> Mark Resolved`
+      : `<i class="bi bi-check-circle-fill"></i> Mark Complete`;
+  }
+  if (btnConvert) {
+    btnConvert.innerHTML = isProblem
+      ? `<i class="bi bi-calendar-plus"></i> Convert to Appointment`
+      : `<i class="bi bi-arrow-repeat"></i> Convert to Visit`;
+  }
+  if (btnCancel) {
+    btnCancel.innerHTML = isProblem
+      ? `<i class="bi bi-x-circle"></i> Dismiss`
+      : `<i class="bi bi-x-circle"></i> Cancel`;
+  }
 
   $('#ca-backdrop').classList.remove('hidden');
   $('#ca-modal').classList.remove('hidden');
@@ -359,47 +558,105 @@ function closeCallActionModal() {
   state.activeCall = null;
 }
 
+function promptForCancelReason() {
+  const raw = window.prompt(
+    'Reason for cancelling?\n\nType: patient, no_show, clinic, or rescheduled',
+    'patient'
+  );
+  if (!raw) return null;
+  const r = raw.trim().toLowerCase();
+  const allowed = ['patient', 'no_show', 'clinic', 'rescheduled'];
+  return allowed.includes(r) ? r : 'patient';
+}
+
 function wireCallActionModal() {
   $('#ca-backdrop')?.addEventListener('click', closeCallActionModal);
   $('#ca-close')?.addEventListener('click', closeCallActionModal);
 
   $('#ca-btn-complete')?.addEventListener('click', async () => {
     if (!state.activeCall) return;
+    const call = state.activeCall;
     try {
-      if (state.activeCall._type === 'problem') {
-        await resolveCall(state.activeCall.id, 'completed', 'Marked from Day View');
+      if (call._type === 'problem') {
+        await resolveCall(call.id, 'completed', 'Marked from Day View');
+        showToast('Call resolved', 'success');
       } else {
-        await updateStatus(state.activeCall.id, 'seen', '');
-        invalidateOccupancy(state.clinicId, state.activeCall.date);
+        await updateStatus(call.id, 'seen', '');
+        try { invalidateOccupancy(state.clinicId, call.date); } catch {}
+        showToast('Call completed', 'success');
       }
-      showToast('Call completed', 'success');
       closeCallActionModal();
-      loadCallsPanel();
-    } catch (err) { showToast('Could not complete', 'error'); }
+    } catch (err) {
+      console.error('[day-view] call complete failed', err);
+      showToast('Could not complete', 'error');
+    }
   });
 
   $('#ca-btn-convert')?.addEventListener('click', async () => {
     if (!state.activeCall) return;
+    const call = state.activeCall;
+
+    if (call._type === 'scheduled') {
+      try {
+        await convertScheduledToVisit(call.id);
+        showToast('Converted to visit', 'success');
+        closeCallActionModal();
+      } catch (err) {
+        console.error('[day-view] convert scheduled failed', err);
+        showToast('Could not convert', 'error');
+      }
+      return;
+    }
+
+    try {
+      await resolveCall(call.id, 'add_to_appointment', 'Converted to appointment');
+    } catch (err) {
+      console.error('[day-view] resolve before convert failed', err);
+    }
+
     closeCallActionModal();
-    // Redirect to book page with patient prefilled
-    location.href = `/book?patientId=${state.activeCall.patientId}`;
+
+    const params = new URLSearchParams();
+    if (call.patientId) params.set('patientId', call.patientId);
+    else {
+      if (call.patientName) params.set('patientName', call.patientName);
+      if (call.patientPhone) params.set('patientPhone', call.patientPhone);
+    }
+    params.set('date', todayISO());
+    params.set('fromCall', call.id);
+
+    location.href = `/book?${params.toString()}`;
   });
 
   $('#ca-btn-cancel')?.addEventListener('click', async () => {
     if (!state.activeCall) return;
-    if (!confirm('Are you sure you want to cancel this call?')) return;
-    
-    try {
-      if (state.activeCall._type === 'problem') {
-        await resolveCall(state.activeCall.id, 'add_to_appointment', 'Cancelled');
-      } else {
-        await updateStatus(state.activeCall.id, 'cancelled', 'clinic');
-        invalidateOccupancy(state.clinicId, state.activeCall.date);
+    const call = state.activeCall;
+
+    if (call._type === 'problem') {
+      if (!confirm('Dismiss this problem call?')) return;
+      try {
+        await resolveCall(call.id, 'completed', 'Dismissed from Day View');
+        showToast('Call dismissed', 'success');
+        closeCallActionModal();
+      } catch (err) {
+        console.error('[day-view] dismiss problem call failed', err);
+        showToast('Could not dismiss', 'error');
       }
-      showToast('Call cancelled', 'success');
+      return;
+    }
+
+    const reason = promptForCancelReason();
+    if (!reason) return;
+
+    try {
+      await updateStatus(call.id, 'cancelled', reason);
+      try { invalidateOccupancy(state.clinicId, call.date); } catch {}
+      showToast('Appointment cancelled', 'success');
       closeCallActionModal();
-      loadCallsPanel();
-    } catch (err) { showToast('Could not cancel', 'error'); }
+    } catch (err) {
+      console.error('[day-view] cancel scheduled failed', err);
+      showToast('Could not cancel', 'error');
+    }
   });
 }
 
@@ -494,7 +751,6 @@ function wireQuickCallModal() {
       });
       showToast('Call added', 'success');
       close();
-      loadCallsPanel(); // Refresh right panel
     } catch (err) {
       console.error(err);
       showToast('Could not save call', 'error');
@@ -506,7 +762,7 @@ function wireQuickCallModal() {
 }
 
 // ============================================================
-// EXISTING APPOINTMENT MODAL (Row Actions)
+// ROW ACTION HANDLERS (desktop buttons in grid)
 // ============================================================
 
 async function handleRowAction(action, id) {
@@ -527,20 +783,8 @@ async function handleRowAction(action, id) {
     } else {
       $('#ra-panel-actions')?.classList.add('hidden');
       $('#ra-panel-followup')?.classList.remove('hidden');
-      $('#ra-fu-date').value = '';
-      $('#ra-fu-interval').value = '';
-      
-      try {
-        state.pendingFollowup = await findPendingForPatient(state.clinicId, appt.patientId);
-        const note = $('#ra-followup-note');
-        if (state.pendingFollowup && note) {
-          note.classList.remove('hidden');
-          note.className = 'bg-blue-50 text-[12px] text-blue-700 border border-blue-200 p-3 rounded-lg mb-4';
-          note.innerHTML = `Patient has an existing follow-up scheduled for <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>.`;
-        } else if (note) {
-          note.classList.add('hidden');
-        }
-      } catch (err) {}
+      resetFollowupPanel();
+      await loadPendingFollowup(appt);
     }
     return;
   }
@@ -621,6 +865,8 @@ function goDate(iso) {
   renderHeader();
   renderGrid();
   subscribe();
+  // Calls panel is realtime and scoped to today's clinic;
+  // no need to restart on date change.
 }
 
 function onEmptySlotClick(slot) {
@@ -631,12 +877,41 @@ function onEmptySlotClick(slot) {
 // ROW ACTION MODAL
 // ============================================================
 
+function resetFollowupPanel() {
+  const dateIn = $('#ra-fu-date');
+  const intIn = $('#ra-fu-interval');
+  const note = $('#ra-followup-note');
+  if (dateIn) dateIn.value = '';
+  if (intIn) intIn.value = '';
+  if (note) {
+    note.classList.add('hidden');
+    note.innerHTML = '';
+  }
+  state.pendingFollowup = null;
+}
+
+async function loadPendingFollowup(appt) {
+  try {
+    state.pendingFollowup = await findPendingForPatient(state.clinicId, appt.patientId);
+    const note = $('#ra-followup-note');
+    if (state.pendingFollowup && note) {
+      note.innerHTML = `Patient has an existing follow-up scheduled for <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>.`;
+      note.classList.remove('hidden');
+    } else if (note) {
+      note.classList.add('hidden');
+    }
+  } catch (err) {
+    console.error('[day-view] pending followup check failed', err);
+  }
+}
+
 function openRowModal(appt) {
   state.activeAppt = appt;
 
   const status = appt.status || 'booked';
   const isSeen = status === 'seen';
   const isCancelled = status === 'cancelled';
+  const hasInvoice = appt.notes && (appt.notes.includes('Invoice:') || appt.notes.includes('[No Bill]'));
 
   $('#ra-name').textContent = appt.patientName || 'Patient';
   $('#ra-time').textContent = `${fmtSlot(appt.slot)} - ${fmtSlot(addSlot(appt.slot, state.schedule.slotMinutes, appt.durationSlots || 1))}`;
@@ -646,22 +921,28 @@ function openRowModal(appt) {
   const btnComplete = $('#ra-btn-complete');
   const btnReschedule = $('#ra-btn-reschedule');
   const btnCancel = $('#ra-btn-cancel');
+  const btnBill = $('#ra-btn-bill');
+  const btnNoBill = $('#ra-btn-no-bill');
 
-  if (isSeen || isCancelled) {
-    btnComplete.disabled = true;
-    btnComplete.classList.add('opacity-40');
-    btnReschedule.disabled = true;
-    btnReschedule.classList.add('opacity-40');
-    btnCancel.disabled = true;
-    btnCancel.classList.add('opacity-40');
-  } else {
-    btnComplete.disabled = false;
-    btnComplete.classList.remove('opacity-40');
-    btnReschedule.disabled = false;
-    btnReschedule.classList.remove('opacity-40');
-    btnCancel.disabled = false;
-    btnCancel.classList.remove('opacity-40');
-  }
+  const notYet = !isSeen && !isCancelled;
+  const unpaid = isSeen && !hasInvoice;
+
+  [btnComplete, btnReschedule, btnCancel].forEach(btn => {
+    if (!btn) return;
+    if (notYet) {
+      btn.disabled = false;
+      btn.classList.remove('opacity-40');
+    } else {
+      btn.disabled = true;
+      btn.classList.add('opacity-40');
+    }
+  });
+
+  const showBilling = notYet || unpaid;
+  [btnBill, btnNoBill].forEach(btn => {
+    if (!btn) return;
+    btn.classList.toggle('hidden', !showBilling);
+  });
 
   $('#ra-panel-actions').classList.remove('hidden');
   $('#ra-panel-followup').classList.add('hidden');
@@ -676,8 +957,9 @@ function openRowModal(appt) {
 
   setTimeout(() => {
     if (!btnComplete.disabled) btnComplete.focus();
+    else if (btnBill && !btnBill.classList.contains('hidden')) btnBill.focus();
     else btnCancel.focus();
-      }, 150);
+  }, 150);
 }
 
 function closeRowModal() {
@@ -720,21 +1002,39 @@ function wireRowModal() {
 
     $('#ra-panel-actions').classList.add('hidden');
     $('#ra-panel-followup').classList.remove('hidden');
+    resetFollowupPanel();
+    await loadPendingFollowup(appt);
+  });
 
-    $('#ra-fu-date').value = '';
-    $('#ra-fu-interval').value = '';
+  $('#ra-btn-bill')?.addEventListener('click', () => {
+    const appt = state.activeAppt;
+    if (!appt) return;
+    closeRowModal();
+    openBillingDrawer(appt.patientId, appt.id);
+  });
+
+  $('#ra-btn-no-bill')?.addEventListener('click', async () => {
+    const appt = state.activeAppt;
+    if (!appt) return;
+
+    if (!confirm("Mark this appointment as 'No Bill Needed'?")) return;
 
     try {
-      state.pendingFollowup = await findPendingForPatient(state.clinicId, appt.patientId);
-      const note = $('#ra-followup-note');
-      if (state.pendingFollowup && note) {
-        note.classList.remove('hidden');
-        note.className = 'bg-blue-50 text-[12px] text-blue-700 border border-blue-200 p-3 rounded-lg mb-4';
-        note.innerHTML = `Patient has an existing follow-up scheduled for <strong>${fmtDate(state.pendingFollowup.dueDate)}</strong>.`;
-      } else if (note) {
-        note.classList.add('hidden');
-      }
-    } catch (err) {}
+      const existingNotes = appt.notes || '';
+      const cleanNotes = existingNotes.replace(/Invoice:\s*\S+/g, '').replace(/\[No Bill\]/g, '').trim();
+      const newNotes = (cleanNotes + ' [No Bill]').trim();
+
+      await updateDoc(doc(db, 'appointments', appt.id), {
+        status: 'seen',
+        notes: newNotes
+      });
+
+      showToast('Marked as No Bill', 'success');
+      closeRowModal();
+    } catch (err) {
+      console.error(err);
+      showToast('Could not update', 'error');
+    }
   });
 
   $('#ra-btn-reschedule')?.addEventListener('click', () => {
@@ -769,14 +1069,13 @@ function wireRowModal() {
       dueDate = intervalToDate(appt.date, days);
     }
 
-    // THE BULLETPROOF WARNING
     if (!dueDate) {
-      const msg = state.pendingFollowup 
+      const msg = state.pendingFollowup
         ? `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
         : `No follow-up date selected. Are you sure you want to mark this patient as complete without a follow-up?`;
-      
+
       const proceed = confirm(msg);
-      if (!proceed) return; 
+      if (!proceed) return;
     }
 
     try {
@@ -786,18 +1085,25 @@ function wireRowModal() {
       if (dueDate) {
         if (state.pendingFollowup) {
           await supersede(
-            state.pendingFollowup.id, 
-            `Visited early on ${appt.date}`, 
+            state.pendingFollowup.id,
+            `Visited early on ${appt.date}`,
             dueDate
           );
         }
         await createFromVisit(appt, days || null, dueDate);
       }
 
-      showToast('Marked as complete', 'success');
+      const hasInvoice = appt.notes && (appt.notes.includes('Invoice:') || appt.notes.includes('[No Bill]'));
+
       closeRowModal();
+
+      if (!hasInvoice) {
+        openBillingPrompt(appt);
+      } else {
+        showToast('Marked as complete', 'success');
+      }
     } catch (err) {
-      console.error(err);
+      console.error('[day-view] complete failed', err);
       showToast('Could not complete', 'error');
     }
   });
@@ -837,12 +1143,14 @@ function wireRowModal() {
       }
 
       await rescheduleAppt(appt.id, newDate, newSlot);
-      invalidateOccupancy(state.clinicId, appt.date);
-      invalidateOccupancy(state.clinicId, newDate);
+
+      try { invalidateOccupancy(state.clinicId, appt.date); } catch {}
+      try { invalidateOccupancy(state.clinicId, newDate); } catch {}
+
       showToast('Appointment moved', 'success');
       closeRowModal();
     } catch (err) {
-      console.error(err);
+      console.error('[day-view] reschedule failed', err?.code || '', err?.message || err);
       showToast('Could not move', 'error');
     }
   });
@@ -851,6 +1159,7 @@ function wireRowModal() {
     el.addEventListener('click', async () => {
       const reason = el.getAttribute('data-reason');
       const appt = state.activeAppt;
+      if (!appt) return;
       try {
         await updateStatus(appt.id, 'cancelled', reason);
         invalidateOccupancy(state.clinicId, appt.date);

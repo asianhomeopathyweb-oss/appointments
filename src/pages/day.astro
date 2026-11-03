@@ -46,7 +46,7 @@ import AppLayout from '../layouts/AppLayout.astro';
     <!-- Main Workspace -->
     <div class="flex flex-col md:flex-row gap-4 md:gap-6 flex-1 min-h-0">
       
-      <!-- LEFT: Schedule Table (Takes remaining width) -->
+      <!-- LEFT: Schedule Table -->
       <div class="flex-1 bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden flex flex-col">
         <div class="overflow-x-auto overflow-y-auto flex-1">
           
@@ -160,13 +160,38 @@ import AppLayout from '../layouts/AppLayout.astro';
 
   </div>
 
-  <!-- 3. Existing Appointment Action Modal (Same as before) -->
+  <!-- 3. Billing Prompt Modal (Shows after Mark Complete) -->
+  <div id="bp-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+  <div id="bp-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+           md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
+    
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0">
+      <div class="text-[16px] font-bold text-ink">Patient Completed</div>
+      <div class="text-[12px] text-ink-mute mt-0.5">Do you want to generate an invoice for this visit?</div>
+    </div>
+
+    <div class="p-5 flex flex-col gap-3">
+      <button id="bp-btn-bill" type="button" class="w-full h-12 rounded-xl bg-ink hover:bg-ink/90 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-receipt"></i> Generate Bill
+      </button>
+      <button id="bp-btn-nobill" type="button" class="w-full h-12 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-slash-circle"></i> No Bill Needed
+      </button>
+      <button id="bp-btn-close" type="button" class="w-full h-12 rounded-xl bg-white text-ink-mute text-[13px] font-semibold transition-colors">
+        Close (Leave as Unpaid)
+      </button>
+    </div>
+  </div>
+
+  <!-- 4. Existing Appointment Action Modal -->
   <div id="ra-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
   <div id="ra-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
            bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
            md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
            md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
-    <!-- Keep all your existing #ra- content exactly as it is -->
+    
     <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0">
       <div class="flex items-start justify-between gap-3">
         <div class="flex-1 min-w-0">
@@ -182,10 +207,22 @@ import AppLayout from '../layouts/AppLayout.astro';
         </button>
       </div>
     </div>
+
     <div id="ra-panel-actions" class="p-5 flex flex-col gap-3">
       <button id="ra-btn-complete" type="button" class="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
         <i class="bi bi-check-circle-fill"></i> Complete
       </button>
+      
+      <!-- Generate Bill Button -->
+      <button id="ra-btn-bill" type="button" class="w-full h-12 rounded-xl bg-ink hover:bg-ink/90 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-receipt"></i> Generate Bill
+      </button>
+
+      <!-- No Bill Needed Button -->
+      <button id="ra-btn-no-bill" type="button" class="w-full h-12 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-slash-circle"></i> No Bill Needed
+      </button>
+
       <button id="ra-btn-reschedule" type="button" class="w-full h-12 rounded-xl bg-orange-400 hover:bg-orange-500 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
         <i class="bi bi-clock-fill"></i> Reschedule
       </button>
@@ -193,6 +230,7 @@ import AppLayout from '../layouts/AppLayout.astro';
         <i class="bi bi-x-circle"></i> Cancel
       </button>
     </div>
+
     <div id="ra-panel-followup" class="hidden p-5">
       <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Schedule next follow-up</div>
       <div class="mb-3">
@@ -213,12 +251,13 @@ import AppLayout from '../layouts/AppLayout.astro';
           <option value="365">12 months</option>
         </select>
       </div>
-      <div id="ra-followup-note" class="hidden mb-3 p-3 rounded-lg bg-orange-50 text-[12px] text-orange-700 border border-orange-200"></div>
+      <div id="ra-followup-note" class="hidden mb-3 p-3 rounded-lg text-[12px] border bg-blue-50 text-blue-700 border-blue-200"></div>
       <div class="flex gap-3">
         <button id="ra-followup-back" type="button" class="flex-1 h-10 rounded-xl bg-white text-ink border border-hairline text-[13px] font-semibold">Back</button>
         <button id="ra-followup-save" type="button" class="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold">Mark Complete</button>
       </div>
     </div>
+
     <div id="ra-panel-reschedule" class="hidden p-5">
       <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Reschedule Appointment</div>
       <div class="mb-3">
@@ -234,6 +273,7 @@ import AppLayout from '../layouts/AppLayout.astro';
         <button id="ra-res-save" type="button" class="flex-1 h-10 rounded-xl bg-orange-400 hover:bg-orange-500 text-white text-[13px] font-bold">Move</button>
       </div>
     </div>
+
     <div id="ra-panel-cancel" class="hidden p-5">
       <div class="text-[11px] font-bold uppercase tracking-widest text-ink-mute mb-3">Why cancel?</div>
       <div class="grid grid-cols-2 gap-2 mb-4">
@@ -244,6 +284,7 @@ import AppLayout from '../layouts/AppLayout.astro';
       </div>
       <button id="ra-cancel-back" type="button" class="text-[12.5px] font-semibold text-ink-mute hover:text-ink transition-colors">← Back to actions</button>
     </div>
+
   </div>
 
   <script>

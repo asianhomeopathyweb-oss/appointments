@@ -8,6 +8,7 @@ import { getActiveClinicId } from './lib/clinic-context.js';
 import { get as getPatient, updatePatient } from './patients.js';
 import { listForPatient as listApptsForPatient } from './appointments.js';
 import { listForPatient as listFollowupsForPatient } from './followups.js';
+import { openBillingDrawer } from './lib/billing-drawer.js';
 import { todayISO, fmtDate, fmtSlot, fmtRelative } from './date-utils.js';
 import { showToast } from './lib/toast.js';
 
@@ -73,6 +74,11 @@ function renderHeader() {
   const bookBtn = $('#pt-book');
   if (bookBtn) bookBtn.addEventListener('click', () => {
     location.href = `/book?patientId=${encodeURIComponent(state.patientId)}`;
+  });
+
+  const billBtn = $('#pt-bill');
+  if (billBtn) billBtn.addEventListener('click', () => {
+    openBillingDrawer(state.patientId);
   });
 
   const callBtn = $('#pt-call');
@@ -225,7 +231,7 @@ function openEditModal() {
   $('#ep-phone').value = p.phone || '';
   $('#ep-sex').value = p.sex || 'Male';
   $('#ep-referral').value = p.referral || '';
-    $('#ep-address').value = p.address || '';
+  $('#ep-address').value = p.address || '';
 
   if (p.age) {
     $('#ep-age').value = p.age;
@@ -287,7 +293,7 @@ async function savePatient() {
 
   try {
     await updatePatient(state.patientId, changes);
-    showToast('Patient updated');
+    showToast('Patient updated', 'success');
     setTimeout(() => location.reload(), 400);
   } catch (err) {
     console.error(err);

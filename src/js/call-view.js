@@ -4,16 +4,18 @@
 // Controller for /call?id=...
 //
 // Shows one ad-hoc call with full history and actions:
-//   - Call back              -> tel: on mobile, copy on desktop
-//   - Complete               -> status done, outcome completed
-//   - Convert to appointment -> status converted, open /book prefilled
-//   - Add note               -> append to history
+//   - Call back       -> tel: on mobile, copy on desktop
+//   - Mark Resolved   -> status done, outcome completed, back to /calls
+//   - Convert         -> status converted, open /book prefilled
+//   - Dismiss         -> status done, outcome completed, back to /calls
+//   - Add note        -> append to history
 // ============================================================
 
 import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { get as getCall, resolve, addNote } from './calls.js';
 import { showToast } from './lib/toast.js';
+import { todayISO } from './date-utils.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -48,16 +50,17 @@ function render() {
 
   setText('#call-name', c.patientName || 'Patient');
   setText('#call-phone', c.patientPhone || '');
-  setText('#call-reason', c.reason || '€”');
+  setText('#call-reason', c.reason || '—');
   setText('#call-status', statusLabel(c.status));
   setText('#call-created', fmtTimestamp(c.createdAt));
 
   const statusEl = $('#call-status');
   if (statusEl) {
-    statusEl.className = 'text-[12.5px] font-medium ' +
-      (c.status === 'done' ? 'text-accent'
-        : c.status === 'converted' ? 'text-ink-mute'
-        : 'text-ink');
+    const tone =
+      c.status === 'done' ? 'bg-emerald-100 text-emerald-700'
+      : c.status === 'converted' ? 'bg-blue-100 text-blue-700'
+      : 'bg-surface-hover text-ink-mute';
+    statusEl.className = `text-[11px] md:text-[12px] font-bold uppercase tracking-widest px-3 py-1 rounded-full ${tone}`;
   }
 
   renderHistory();
@@ -88,17 +91,28 @@ function renderActions() {
   const c = state.call;
 
   if (c.status !== 'pending') {
-    root.innerHTML = `<div class="text-[12.5px] text-ink-mute py-2">This call is ${statusLabel(c.status).toLowerCase()}. No actions.</div>`;
+    root.innerHTML = `
+      <div class="text-[12.5px] text-ink-mute py-2 mb-3">This call is ${statusLabel(c.status).toLowerCase()}. No further actions.</div>
+      <a href="/calls" class="block w-full h-11 rounded-lg bg-ink hover:bg-ink/90 text-white text-[13px] font-bold flex items-center justify-center gap-2 transition-colors">
+        <i class="bi bi-arrow-left"></i> Back to Calls
+      </a>`;
     return;
   }
 
   root.innerHTML = `
-    <button type="button" data-action="callback" class="w-full h-11 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-medium transition-colors">Call back</button>
+    <button type="button" data-action="callback" class="w-full h-11 rounded-lg bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors flex items-center justify-center gap-2">
+      <i class="bi bi-telephone-fill"></i> Call back
+    </button>
+    <button type="button" data-action="complete" class="w-full h-11 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] font-bold transition-colors flex items-center justify-center gap-2 shadow-sm">
+      <i class="bi bi-check-circle-fill"></i> Mark Resolved
+    </button>
+    <button type="button" data-action="convert" class="w-full h-11 rounded-lg bg-ink hover:bg-ink/90 text-white text-[13px] font-bold transition-colors flex items-center justify-center gap-2 shadow-sm">
+      <i class="bi bi-calendar-plus"></i> Convert to Appointment
+    </button>
     <div class="grid grid-cols-2 gap-2">
-      <button type="button" data-action="complete" class="h-11 rounded-lg bg-white hover:bg-surface-hover text-accent border border-hairline text-[13px] font-medium">Complete</button>
-      <button type="button" data-action="convert" class="h-11 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-medium">Convert to appointment</button>
-    </div>
-    <button type="button" data-action="note" class="w-full h-11 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-medium">Add note</button>`;
+      <button type="button" data-action="note" class="h-11 rounded-lg bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-medium transition-colors">Add note</button>
+      <button type="button" data-action="dismiss" class="h-11 rounded-lg bg-white hover:bg-red-50 text-red-500 border border-hairline hover:border-red-200 text-[13px] font-medium transition-colors">Dismiss</button>
+    </div>`;
 
   root.querySelectorAll('[data-action]').forEach((el) => {
     el.addEventListener('click', () => onAction(el.getAttribute('data-action')));
@@ -110,9 +124,8 @@ function setText(sel, value) {
   if (el) el.textContent = value;
 }
 
-
 function statusLabel(s) {
-  return { pending: 'Pending', done: 'Complete', converted: 'Converted' }[s] || s || '€”';
+  return { pending: 'Pending', done: 'Complete', converted: 'Converted' }[s] || s || '—';
 }
 
 function fmtTimestamp(ts) {
@@ -120,11 +133,9 @@ function fmtTimestamp(ts) {
   try {
     const d = ts.toDate ? ts.toDate() : new Date(ts);
     const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const da = String(d.getDate()).padStart(2, '0');
     const h = String(d.getHours()).padStart(2, '0');
     const mi = String(d.getMinutes()).padStart(2, '0');
-    return `${da} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${y}, ${h}:${mi}`;
+    return `${String(d.getDate()).padStart(2, '0')} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${y}, ${h}:${mi}`;
   } catch { return ''; }
 }
 
@@ -148,8 +159,9 @@ function wireEvents() {
 
 async function onAction(action) {
   if (action === 'callback') return doCallback();
-  if (action === 'complete') return doResolve('completed');
-  if (action === 'convert') return doResolve('add_to_appointment');
+  if (action === 'complete') return doResolve('completed', 'Mark this call as resolved?');
+  if (action === 'convert') return doResolve('add_to_appointment', 'Convert this call to an appointment?');
+  if (action === 'dismiss') return doResolve('completed', 'Dismiss this call? It will be marked as complete.');
   if (action === 'note') return doNote();
 }
 
@@ -167,27 +179,42 @@ function doCallback() {
   }
 }
 
-async function doResolve(outcome) {
-  const label = outcome === 'completed' ? 'Complete' : 'Convert to appointment';
-  if (!confirm(`Mark this call as ${label.toLowerCase()}?`)) return;
+async function doResolve(outcome, confirmMsg) {
+  if (state.saving) return;
+  if (!confirm(confirmMsg)) return;
+
   state.saving = true;
   try {
-    await resolve(state.call.id, outcome, '');
-    showToast(outcome === 'completed' ? 'Call completed' : 'Call converted');
+    const note =
+      outcome === 'add_to_appointment' ? 'Converted to appointment'
+      : 'Marked resolved from detail view';
+
+    await resolve(state.call.id, outcome, note);
 
     if (outcome === 'add_to_appointment') {
-      // Navigate to booking, patient prefilled.
-      const url = `/book?patientId=${encodeURIComponent(state.call.patientId)}`;
-      setTimeout(() => { location.href = url; }, 400);
+      showToast('Opening booking…', 'success');
+      const params = new URLSearchParams();
+      if (state.call.patientId) {
+        params.set('patientId', state.call.patientId);
+      } else {
+        if (state.call.patientName) params.set('patientName', state.call.patientName);
+        if (state.call.patientPhone) params.set('patientPhone', state.call.patientPhone);
+      }
+      params.set('date', todayISO());
+      params.set('fromCall', state.call.id);
+
+      setTimeout(() => {
+        location.href = `/book?${params.toString()}`;
+      }, 800);
       return;
     }
 
-    state.call = await getCall(state.call.id);
-    render();
+    // Mark resolved / dismissed → toast then back to /calls
+    showToast(outcome === 'completed' ? 'Call resolved' : 'Call updated', 'success');
+    setTimeout(() => { location.href = '/calls'; }, 800);
   } catch (err) {
     console.error('[call-view] resolve failed:', err);
     showToast('Could not update', 'error');
-  } finally {
     state.saving = false;
   }
 }
@@ -198,7 +225,7 @@ async function doNote() {
   state.saving = true;
   try {
     await addNote(state.call.id, note.trim());
-    showToast('Note added');
+    showToast('Note added', 'success');
     state.call = await getCall(state.call.id);
     render();
   } catch (err) {

@@ -19,7 +19,8 @@ import {
   getDoc,
   addDoc,
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from './lib/firebase-init.js';
 import { me } from './lib/auth-guards.js';
@@ -208,4 +209,117 @@ async function syncPatientDetails(patientId, newName, newPhone) {
       console.warn(`Failed to sync details in ${colName}`, err);
     }
   }
+}
+
+// ============================================================
+// MERGE & DELETE LOGIC
+// ============================================================
+
+/**
+ * Check if a patient has any references in other collections.
+ * Used to block deletion if the patient has history.
+ */
+export async function checkPatientReferences(patientId) {
+  if (!patientId) return { hasReferences: false, count: 0 };
+  
+  let count = 0;
+  // We check: appointments, followUps, calls, invoices
+  const collectionsToCheck = ['appointments', 'followUps', 'calls', 'invoices'];
+  
+  for (const colName of collectionsToCheck) {
+    try {
+      const q = query(collection(db, colName), where('patientId', '==', patientId));
+      const snap = await getDocs(q);
+      // Only count non-deleted ones
+      snap.forEach(d => {
+        if (d.data().deleted !== true) count++;
+      });
+    } catch (err) {
+      console.warn(`Failed to check references in ${colName}`, err);
+    }
+  }
+  
+  return { hasReferences: count > 0, count };
+}
+
+/**
+ * Soft delete a patient. Only allowed if they have no references.
+ */
+export async function deletePatient(patientId) {
+  if (!patientId) throw new Error('deletePatient: id required');
+  
+  const refs = await checkPatientReferences(patientId);
+  if (refs.hasReferences) {
+    throw new Error(`Cannot delete patient. They have ${refs.count} associated records (appointments/bills/calls). Use the Merge tool to consolidate them instead.`);
+  }
+
+  const m = me();
+  await updateDoc(doc(db, 'patients', patientId), {
+    deleted: true,
+    deleted_at: serverTimestamp(),
+    deletedBy: m.uid
+  });
+  
+  try { await writeAudit('patient_deleted', patientId); } catch {}
+  return true;
+}
+
+/**
+ * Merge two patients.
+ * @param {string} keepId - The ID of the patient we are keeping.
+ * @param {string} absorbId - The ID of the duplicate patient to absorb.
+ * @param {object} keepData - The full data object of the patient we are keeping.
+ */
+export async function mergePatients(keepId, absorbId, keepData) {
+  if (!keepId || !absorbId) throw new Error('mergePatients: both IDs required');
+  if (keepId === absorbId) throw new Error('mergePatients: cannot merge patient into themselves');
+
+  const m = me();
+  const batch = writeBatch(db);
+  
+  const collectionsToUpdate = ['appointments', 'followUps', 'calls', 'invoices'];
+  
+  for (const colName of collectionsToUpdate) {
+    try {
+      // Query only by patientId to avoid composite index
+      const q = query(collection(db, colName), where('patientId', '==', absorbId));
+      const snap = await getDocs(q);
+      
+      snap.forEach(d => {
+        const ref = doc(db, colName, d.id);
+        // Overwrite the patient snapshot fields AND the ID
+        batch.update(ref, {
+          patientId: keepId,
+          patientName: keepData.name,
+          patientPhone: keepData.phone || ''
+        });
+      });
+    } catch (err) {
+      console.warn(`Failed to fetch records to merge in ${colName}`, err);
+      throw new Error(`Failed to read from ${colName}. Merge aborted to prevent data loss.`);
+    }
+  }
+
+  // 1. Soft-delete the absorbed patient
+  const absorbRef = doc(db, 'patients', absorbId);
+  batch.update(absorbRef, {
+    deleted: true,
+    deleted_at: serverTimestamp(),
+    deletedBy: m.uid,
+    merged_into: keepId
+  });
+
+  // 2. Update the kept patient with audit info
+  const keepRef = doc(db, 'patients', keepId);
+  batch.update(keepRef, {
+    updated_at: serverTimestamp(),
+    updatedBy: m.uid,
+    updated_via: 'merge'
+  });
+
+  // Commit everything in one transaction
+  await batch.commit();
+
+  try { await writeAudit('patient_merged', keepId); } catch {}
+  return true;
 }

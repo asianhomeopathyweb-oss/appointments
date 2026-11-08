@@ -128,10 +128,86 @@ import AppLayout from '../layouts/AppLayout.astro';
     </div>
   </div>
 
+  <!-- ========================================== -->
+  <!-- MERGE PATIENT MODAL -->
+  <!-- ========================================== -->
+  <div id="merge-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"></div>
+  
+  <div id="merge-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:w-[min(94vw,500px)]">
+
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 flex items-center justify-between shrink-0">
+      <div>
+        <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase">Admin Only</div>
+        <div class="text-[16px] font-bold text-ink">Merge Duplicate Patient</div>
+      </div>
+      <button id="merge-close" type="button" aria-label="Close"
+        class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute">
+        <i class="bi bi-x-lg text-[16px]"></i>
+      </button>
+    </div>
+
+    <div class="p-5 overflow-y-auto flex-1 space-y-4">
+
+      <!-- KEEP -->
+      <div>
+        <div class="text-[10px] font-bold tracking-widest text-emerald-600 uppercase mb-2">Keep this patient</div>
+        <div id="merge-keep-card" class="p-3 rounded-xl border-2 border-emerald-200 bg-emerald-50">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- ABSORB -->
+      <div>
+        <div class="text-[10px] font-bold tracking-widest text-red-500 uppercase mb-2">Absorb duplicate into the above</div>
+        <div id="merge-absorb-empty" class="p-4 rounded-xl border-2 border-dashed border-hairline bg-surface-hover/30 text-center">
+          <div class="text-[13px] text-ink-mute mb-2">No duplicate selected yet</div>
+          <div class="relative">
+            <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-[14px]"></i>
+            <input id="merge-search" type="search" autocomplete="off" placeholder="Search by name or phone..."
+              class="w-full h-10 pl-9 pr-3 rounded-lg border border-hairline bg-white text-[13px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+          </div>
+        </div>
+        <div id="merge-absorb-list" class="hidden mt-2 bg-white rounded-xl border border-hairline max-h-[240px] overflow-y-auto divide-y divide-hairline"></div>
+        <div id="merge-absorb-card" class="hidden p-3 rounded-xl border-2 border-red-200 bg-red-50">
+          <!-- Filled by JS when a duplicate is picked -->
+        </div>
+      </div>
+
+      <!-- WARNING -->
+      <div class="p-3 rounded-xl bg-orange-50 border border-orange-200 text-[12px] text-orange-800 leading-relaxed">
+        <div class="flex gap-2">
+          <i class="bi bi-exclamation-triangle-fill text-orange-600 mt-0.5 shrink-0"></i>
+          <div>
+            All appointments, follow-ups, calls and invoices of the duplicate will be reassigned to the kept patient. The duplicate will be <strong>soft-deleted</strong>. This cannot be undone from the UI.
+          </div>
+        </div>
+      </div>
+
+      <!-- TYPE TO CONFIRM -->
+      <div id="merge-confirm-wrap" class="hidden">
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Type <span class="text-red-600">MERGE</span> to confirm</label>
+        <input id="merge-confirm-input" type="text" autocomplete="off" placeholder="MERGE"
+          class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] font-bold tracking-widest focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 transition-all" />
+      </div>
+
+    </div>
+
+    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3 shrink-0 pb-[env(safe-area-inset-bottom,20px)]">
+      <button id="merge-cancel" type="button"
+        class="flex-1 h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
+      <button id="merge-execute" type="button" disabled
+        class="flex-1 h-11 rounded-xl bg-red-500 hover:bg-red-600 text-white text-[13px] font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm">
+        Merge and Delete Duplicate
+      </button>
+    </div>
+  </div>
+
   <script>
-    import { requireAuth } from '../js/lib/auth-guards.js';
+    import { requireAuth, isAdmin } from '../js/lib/auth-guards.js';
     import { getActiveClinicId } from '../js/lib/clinic-context.js';
-    import { create as createPatient, findExact } from '../js/patients.js';
+    import { create as createPatient, findExact, mergePatients } from '../js/patients.js';
     import { showToast } from '../js/lib/toast.js';
     import { collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
     import { db } from '../js/lib/firebase-init.js';
@@ -141,7 +217,12 @@ import AppLayout from '../layouts/AppLayout.astro';
       allPatients: [],
       filtered: [],
       displayedCount: 50,
-      saving: false
+      saving: false,
+      // Merge modal state
+      mergeKeep: null,     // { id, name, phone } — patient A (kept)
+      mergeAbsorb: null,   // { id, name, phone } — patient B (absorbed)
+      mergeCandidates: [],
+      merging: false
     };
 
     function esc(s) {
@@ -181,10 +262,11 @@ import AppLayout from '../layouts/AppLayout.astro';
       }
 
       const toRender = state.filtered.slice(0, state.displayedCount);
+      const admin = isAdmin();
 
       root.innerHTML = toRender.map((p) => `
         <div data-pid="${esc(p.id)}"
-          class="flex items-center gap-4 px-4 md:px-6 py-4 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline last:border-b-0">
+          class="group flex items-center gap-4 px-4 md:px-6 py-4 hover:bg-surface-hover cursor-pointer transition-colors border-b border-hairline last:border-b-0">
           
           <div class="w-10 h-10 rounded-full bg-accent-soft text-accent flex items-center justify-center shrink-0 font-bold text-[14px]">
             ${esc((p.name || '?').charAt(0).toUpperCase())}
@@ -194,15 +276,35 @@ import AppLayout from '../layouts/AppLayout.astro';
             <div class="text-[15px] font-bold text-ink truncate">${esc(p.name)}</div>
             <div class="text-[13px] text-ink-mute truncate mt-0.5">${esc(p.phone || 'No phone')}</div>
           </div>
+
+          ${admin ? `
+            <button type="button" data-merge-id="${esc(p.id)}"
+              class="hidden md:grid group-hover:grid w-8 h-8 place-items-center rounded-lg bg-white border border-hairline hover:border-accent hover:text-accent text-ink-mute transition-all shrink-0"
+              title="Merge with another patient">
+              <i class="bi bi-intersect text-[14px]"></i>
+            </button>
+          ` : ''}
           
           <div class="shrink-0 text-ink-faint">
             <i class="bi bi-chevron-right text-[16px]"></i>
           </div>
         </div>`).join('');
 
+      // Row click → profile
       root.querySelectorAll('[data-pid]').forEach((el) => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+          if (e.target.closest('[data-merge-id]')) return;
           location.href = `/patient?id=${encodeURIComponent(el.getAttribute('data-pid'))}`;
+        });
+      });
+
+      // Merge icon click
+      root.querySelectorAll('[data-merge-id]').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const pid = el.getAttribute('data-merge-id');
+          const p = state.allPatients.find(x => x.id === pid);
+          if (p) openMergeModal(p);
         });
       });
 
@@ -277,7 +379,7 @@ import AppLayout from '../layouts/AppLayout.astro';
       }
     }
 
-    // ---------- MODAL LOGIC ----------
+    // ---------- NEW PATIENT MODAL ----------
     function openModal() {
       const backdrop = document.getElementById('np-backdrop');
       const modal = document.getElementById('np-modal');
@@ -427,12 +529,247 @@ import AppLayout from '../layouts/AppLayout.astro';
       if (npSave) npSave.addEventListener('click', saveNew);
     }
 
+    // ============================================================
+    // MERGE MODAL
+    // ============================================================
+    function openMergeModal(keepPatient) {
+      state.mergeKeep = keepPatient;
+      state.mergeAbsorb = null;
+      state.mergeCandidates = [];
+      state.merging = false;
+
+      renderMergeKeepCard();
+      resetMergeAbsorb();
+
+      const backdrop = document.getElementById('merge-backdrop');
+      const modal = document.getElementById('merge-modal');
+      if (backdrop) backdrop.classList.remove('hidden');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+
+      setTimeout(() => {
+        const s = document.getElementById('merge-search');
+        if (s) s.focus();
+      }, 150);
+    }
+
+    function closeMergeModal() {
+      const backdrop = document.getElementById('merge-backdrop');
+      const modal = document.getElementById('merge-modal');
+      if (backdrop) backdrop.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      state.mergeKeep = null;
+      state.mergeAbsorb = null;
+      state.mergeCandidates = [];
+      state.merging = false;
+    }
+
+    function renderMergeKeepCard() {
+      const el = document.getElementById('merge-keep-card');
+      if (!el || !state.mergeKeep) return;
+      const p = state.mergeKeep;
+      el.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[13px] shrink-0">
+            ${esc((p.name || '?').charAt(0).toUpperCase())}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[13.5px] font-bold text-ink truncate">${esc(p.name)}</div>
+            <div class="text-[11.5px] text-ink-mute truncate">${esc(p.phone || 'No phone')}</div>
+          </div>
+        </div>`;
+    }
+
+    function resetMergeAbsorb() {
+      state.mergeAbsorb = null;
+
+      const empty = document.getElementById('merge-absorb-empty');
+      const list = document.getElementById('merge-absorb-list');
+      const card = document.getElementById('merge-absorb-card');
+      const search = document.getElementById('merge-search');
+      const confirmWrap = document.getElementById('merge-confirm-wrap');
+      const confirmInput = document.getElementById('merge-confirm-input');
+      const executeBtn = document.getElementById('merge-execute');
+
+      if (empty) empty.classList.remove('hidden');
+      if (list) { list.classList.add('hidden'); list.innerHTML = ''; }
+      if (card) { card.classList.add('hidden'); card.innerHTML = ''; }
+      if (search) search.value = '';
+      if (confirmWrap) confirmWrap.classList.add('hidden');
+      if (confirmInput) confirmInput.value = '';
+      if (executeBtn) executeBtn.disabled = true;
+    }
+
+    function renderMergeCandidates(q) {
+      const list = document.getElementById('merge-absorb-list');
+      const empty = document.getElementById('merge-absorb-empty');
+      if (!list || !empty) return;
+
+      const query = (q || '').trim().toLowerCase();
+      const keepId = state.mergeKeep ? state.mergeKeep.id : null;
+
+      state.mergeCandidates = state.allPatients.filter(p => {
+        if (p.id === keepId) return false;
+        if (!query) return true;
+        return (p.name || '').toLowerCase().includes(query)
+          || (p.phone || '').includes(query);
+      }).slice(0, 30);
+
+      if (state.mergeCandidates.length === 0) {
+        list.innerHTML = `<div class="p-4 text-center text-ink-faint text-[13px]">No matches. Try a different name or phone.</div>`;
+        list.classList.remove('hidden');
+        return;
+      }
+
+      list.innerHTML = state.mergeCandidates.map(p => `
+        <button type="button" data-absorb-id="${esc(p.id)}"
+          class="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-surface-hover transition-colors">
+          <div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-[12px] shrink-0">
+            ${esc((p.name || '?').charAt(0).toUpperCase())}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[13px] font-bold text-ink truncate">${esc(p.name)}</div>
+            <div class="text-[11px] text-ink-mute truncate">${esc(p.phone || 'No phone')}</div>
+          </div>
+        </button>
+      `).join('');
+
+      list.classList.remove('hidden');
+
+      list.querySelectorAll('[data-absorb-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-absorb-id');
+          const picked = state.mergeCandidates.find(x => x.id === id);
+          if (picked) selectAbsorb(picked);
+        });
+      });
+    }
+
+    function selectAbsorb(patient) {
+      state.mergeAbsorb = patient;
+
+      const empty = document.getElementById('merge-absorb-empty');
+      const list = document.getElementById('merge-absorb-list');
+      const card = document.getElementById('merge-absorb-card');
+      const confirmWrap = document.getElementById('merge-confirm-wrap');
+
+      if (empty) empty.classList.add('hidden');
+      if (list) { list.classList.add('hidden'); list.innerHTML = ''; }
+
+      if (card) {
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-red-500 text-white flex items-center justify-center font-bold text-[13px] shrink-0">
+              ${esc((patient.name || '?').charAt(0).toUpperCase())}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[13.5px] font-bold text-ink truncate">${esc(patient.name)}</div>
+              <div class="text-[11.5px] text-ink-mute truncate">${esc(patient.phone || 'No phone')}</div>
+            </div>
+            <button type="button" id="merge-change-absorb"
+              class="text-[11px] font-bold text-accent hover:underline shrink-0">Change</button>
+          </div>`;
+        card.classList.remove('hidden');
+
+        document.getElementById('merge-change-absorb')?.addEventListener('click', () => {
+          resetMergeAbsorb();
+          const s = document.getElementById('merge-search');
+          if (s) { s.focus(); renderMergeCandidates(''); }
+        });
+      }
+
+      if (confirmWrap) confirmWrap.classList.remove('hidden');
+      updateMergeExecuteState();
+    }
+
+    function updateMergeExecuteState() {
+      const executeBtn = document.getElementById('merge-execute');
+      const confirmInput = document.getElementById('merge-confirm-input');
+      if (!executeBtn || !confirmInput) return;
+
+      const ok = !!state.mergeKeep
+        && !!state.mergeAbsorb
+        && confirmInput.value.trim() === 'MERGE'
+        && !state.merging;
+
+      executeBtn.disabled = !ok;
+    }
+
+    async function executeMerge() {
+      if (state.merging) return;
+      if (!state.mergeKeep || !state.mergeAbsorb) return;
+
+      const keep = state.mergeKeep;
+      const absorb = state.mergeAbsorb;
+
+      const proceed = confirm(
+        `Merge "${absorb.name}" INTO "${keep.name}"?\n\n` +
+        `• All appointments, follow-ups, calls and invoices of "${absorb.name}" will be moved to "${keep.name}".\n` +
+        `• "${absorb.name}" will be soft-deleted.\n\n` +
+        `This cannot be undone from the UI. Continue?`
+      );
+      if (!proceed) return;
+
+      state.merging = true;
+      const executeBtn = document.getElementById('merge-execute');
+      if (executeBtn) { executeBtn.disabled = true; executeBtn.textContent = 'Merging...'; }
+
+      try {
+        await mergePatients(keep.id, absorb.id, keep);
+        showToast(`Merged "${absorb.name}" into "${keep.name}"`, 'success');
+        closeMergeModal();
+        await loadAllPatients();
+      } catch (err) {
+        console.error('[merge] failed', err);
+        showToast(err.message || 'Merge failed', 'error');
+        state.        merging = false;
+        if (executeBtn) {
+          executeBtn.textContent = 'Merge and Delete Duplicate';
+          updateMergeExecuteState();
+        }
+      }
+    }
+
+    function wireMergeModal() {
+      document.getElementById('merge-close')?.addEventListener('click', closeMergeModal);
+      document.getElementById('merge-cancel')?.addEventListener('click', closeMergeModal);
+      document.getElementById('merge-backdrop')?.addEventListener('click', closeMergeModal);
+
+      const search = document.getElementById('merge-search');
+      if (search) {
+        let timer = null;
+        search.addEventListener('input', (e) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => renderMergeCandidates(e.target.value), 150);
+        });
+        search.addEventListener('focus', () => {
+          if (!state.mergeAbsorb) renderMergeCandidates(search.value);
+        });
+      }
+
+      const confirmInput = document.getElementById('merge-confirm-input');
+      if (confirmInput) {
+        confirmInput.addEventListener('input', updateMergeExecuteState);
+      }
+
+      document.getElementById('merge-execute')?.addEventListener('click', executeMerge);
+    }
+
+    // ============================================================
+    // BOOT
+    // ============================================================
     (async () => {
       await requireAuth();
       state.clinicId = getActiveClinicId();
       wireSearch();
       wirePagination();
       wireModal();
+      wireMergeModal();
       await loadAllPatients();
     })();
   </script>

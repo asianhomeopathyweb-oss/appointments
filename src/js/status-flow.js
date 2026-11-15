@@ -15,6 +15,7 @@ import { db } from './lib/firebase-init.js';
 import { showToast } from './lib/toast.js';
 import { checkSlotOccupancy, invalidateOccupancy } from './booking-policy.js';
 import { esc } from './lib/format.js';
+import { openWhatsApp } from './lib/whatsapp.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -70,6 +71,11 @@ function renderHeader() {
   setText('#appt-mode', a.mode === 'call' ? 'Call' : 'Visit');
   setText('#appt-status', a.status || 'booked');
 
+  const nameLink = $('#appt-patient');
+  if (nameLink && a.patientId) {
+    nameLink.href = `/patient?id=${encodeURIComponent(a.patientId)}`;
+  }
+
   const statusEl = $('#appt-status');
   if (statusEl) {
     statusEl.className = 'text-[11px] font-bold uppercase tracking-wider mt-0.5 ' +
@@ -98,10 +104,42 @@ function renderBody() {
     buttons.push(button('Restore to Booked', 'reopen', 'secondary', 'bi-arrow-counterclockwise'));
   }
 
+  // Add Contact Buttons
+  buttons.push(`
+    <div class="grid grid-cols-2 gap-2 mt-4">
+      <button type="button" id="appt-btn-call" class="w-full h-11 rounded-xl bg-white border border-hairline text-ink-mute hover:text-ink text-[13px] font-bold flex items-center justify-center gap-2 transition-colors">
+        <i class="bi bi-telephone"></i> Call
+      </button>
+      <button type="button" id="appt-btn-whatsapp" class="w-full h-11 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[13px] font-bold flex items-center justify-center gap-2 transition-colors shadow-sm">
+        <i class="bi bi-whatsapp"></i> WhatsApp
+      </button>
+    </div>
+  `);
+
   actionsRoot.innerHTML = buttons.join('');
 
   actionsRoot.querySelectorAll('[data-action]').forEach((el) => {
     el.addEventListener('click', () => onAction(el.getAttribute('data-action')));
+  });
+
+  // Wire Contact Buttons
+  $('#appt-btn-call')?.addEventListener('click', () => {
+    const phone = a.patientPhone;
+    if (!phone) { showToast('No phone on file', 'error'); return; }
+    if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+      location.href = 'tel:' + phone;
+    } else {
+      navigator.clipboard.writeText(phone).then(() => showToast('Copied: ' + phone)).catch(() => showToast(phone));
+    }
+  });
+
+  $('#appt-btn-whatsapp')?.addEventListener('click', () => {
+    openWhatsApp({
+      name: a.patientName,
+      phone: a.patientPhone,
+      dateISO: a.date,
+      slot: a.slot
+    });
   });
 }
 
@@ -241,7 +279,6 @@ async function doFollowupSave() {
     dueDate = intervalToDate(state.appointment.date, days);
   }
 
-  // THE BULLETPROOF WARNING
   if (!dueDate) {
     const msg = state.pendingFollowup 
       ? `No new date picked. The existing follow-up (${fmtDate(state.pendingFollowup.dueDate)}) will remain as is. Continue?`
@@ -327,7 +364,6 @@ async function doRescheduleSave() {
     if (occ.count > 0) {
       const who = occ.conflict?.patientName || 'another patient';
       
-      // Handle family member forcing
       if (occ.conflict?.isDurationConflict) {
          const proceed = confirm(
           `This time is blocked by ${who}'s New Patient appointment. Move this patient here anyway?`
@@ -358,10 +394,7 @@ async function doCancel(reason) {
   state.saving = true;
   try {
     await updateStatus(state.appointment.id, 'cancelled', reason);
-    
-    // Clear the cache so the slot immediately reopens for booking
     invalidateOccupancy(state.clinicId, state.appointment.date);
-    
     showToast('Appointment cancelled', 'success');
     setTimeout(() => history.back(), 400);
   } catch (err) {

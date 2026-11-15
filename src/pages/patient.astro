@@ -48,10 +48,17 @@ import AppLayout from '../layouts/AppLayout.astro';
               <i class="bi bi-receipt"></i> Generate Bill
             </button>
             
-            <button id="pt-call" type="button"
-              class="w-full h-10 md:h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] md:text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
-              <i class="bi bi-telephone"></i> Call Patient
-            </button>
+            <!-- NEW: Call + WhatsApp side by side -->
+            <div class="grid grid-cols-2 gap-2 md:gap-3">
+              <button id="pt-call" type="button"
+                class="w-full h-10 md:h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] md:text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">
+                <i class="bi bi-telephone"></i> Call
+              </button>
+              <button id="pt-whatsapp" type="button"
+                class="w-full h-10 md:h-11 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[13px] md:text-[14px] font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+                <i class="bi bi-whatsapp"></i> WhatsApp
+              </button>
+            </div>
 
             <button id="pt-edit" type="button"
               class="w-full h-10 md:h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] md:text-[14px] font-semibold transition-colors shadow-sm flex items-center justify-center gap-2">

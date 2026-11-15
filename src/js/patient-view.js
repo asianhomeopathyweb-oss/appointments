@@ -11,6 +11,7 @@ import { listForPatient as listFollowupsForPatient } from './followups.js';
 import { openBillingDrawer } from './lib/billing-drawer.js';
 import { todayISO, fmtDate, fmtSlot, fmtRelative } from './date-utils.js';
 import { showToast } from './lib/toast.js';
+import { openWhatsApp } from './lib/whatsapp.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -98,6 +99,14 @@ function renderHeader() {
     } else {
       navigator.clipboard.writeText(phone).then(() => showToast('Copied: ' + phone)).catch(() => showToast(phone));
     }
+  });
+
+  const waBtn = $('#pt-whatsapp');
+  if (waBtn) waBtn.addEventListener('click', () => {
+    openWhatsApp({
+      name: state.patient.name,
+      phone: state.patient.phone
+    });
   });
 }
 

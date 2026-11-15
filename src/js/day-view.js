@@ -10,6 +10,7 @@ import { createFromVisit, findPendingForPatient, supersede } from './followups.j
 import { create as createCall, subscribeMergedPending, resolve as resolveCall, convertScheduledToVisit } from './calls.js';
 import { searchByName } from './patients.js';
 import { openBillingDrawer } from './lib/billing-drawer.js';
+import { openWhatsApp } from './lib/whatsapp.js';
 import { generateSlots, isDayOpen } from './slot-grid.js';
 import { todayISO, addDays, fmtDate, fmtSlot, isToday, isoToDate, intervalToDate } from './date-utils.js';
 import { showToast } from './lib/toast.js';
@@ -34,8 +35,8 @@ const state = {
   qcPatient: null,
   cameFromFollowup: false,
   // Edit modal state
-  editAppt: null,          // original appointment being edited
-  editPatient: null,       // { id, name, phone } — may be same as original or changed
+  editAppt: null,
+  editPatient: null,
   editChanged: false,
   editSaving: false
 };
@@ -190,7 +191,7 @@ function renderGrid() {
             ? `<span class="text-[11px] md:text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
             : `<span class="text-[11px] md:text-[13px] font-bold text-orange-500 uppercase flex items-center gap-1"><i class="bi bi-exclamation-circle-fill"></i> Unpaid</span>`;
         } else {
-                    statusBadge = `
+          statusBadge = `
             <div class="hidden md:flex flex-nowrap gap-1.5 justify-end">
                <button data-action="edit" data-id="${a.id}" class="h-7 px-2.5 rounded-lg bg-surface-hover hover:bg-hairline text-ink-mute text-[10px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap">
                  <i class="bi bi-pencil-square"></i> Edit
@@ -1075,6 +1076,31 @@ function wireRowModal() {
   $('#ra-btn-cancel')?.addEventListener('click', () => {
     $('#ra-panel-actions').classList.add('hidden');
     $('#ra-panel-cancel').classList.remove('hidden');
+  });
+
+  // NEW: Contact buttons
+  $('#ra-btn-call')?.addEventListener('click', () => {
+    const appt = state.activeAppt;
+    if (!appt || !appt.patientPhone) {
+      showToast('No phone on file', 'error');
+      return;
+    }
+    if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+      location.href = 'tel:' + appt.patientPhone;
+    } else {
+      navigator.clipboard.writeText(appt.patientPhone).then(() => showToast('Copied: ' + appt.patientPhone)).catch(() => showToast(appt.patientPhone));
+    }
+  });
+
+  $('#ra-btn-whatsapp')?.addEventListener('click', () => {
+    const appt = state.activeAppt;
+    if (!appt) return;
+    openWhatsApp({
+      name: appt.patientName,
+      phone: appt.patientPhone,
+      dateISO: appt.date,
+      slot: appt.slot
+    });
   });
 
   $('#ra-res-date')?.addEventListener('change', () => {

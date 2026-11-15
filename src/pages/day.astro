@@ -233,6 +233,16 @@ import AppLayout from '../layouts/AppLayout.astro';
       <button id="ra-btn-cancel" type="button" class="w-full h-12 rounded-xl bg-white hover:bg-red-50 text-red-500 border border-hairline hover:border-red-200 text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
         <i class="bi bi-x-circle"></i> Cancel
       </button>
+
+      <!-- NEW: Contact row -->
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <button id="ra-btn-call" type="button" class="h-10 rounded-xl bg-white border border-hairline text-ink-mute hover:text-ink text-[13px] font-bold flex items-center justify-center gap-2 transition-colors">
+          <i class="bi bi-telephone"></i> Call
+        </button>
+        <button id="ra-btn-whatsapp" type="button" class="h-10 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[13px] font-bold flex items-center justify-center gap-2 transition-colors shadow-sm">
+          <i class="bi bi-whatsapp"></i> WhatsApp
+        </button>
+      </div>
     </div>
 
     <div id="ra-panel-followup" class="hidden p-5">

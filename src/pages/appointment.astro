@@ -12,7 +12,8 @@ import AppLayout from '../layouts/AppLayout.astro';
       </button>
       <div class="flex-1 min-w-0">
         <div class="text-[10px] md:text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-0.5">Appointment</div>
-        <div id="appt-patient" class="text-[20px] md:text-[22px] font-bold text-ink tracking-tight truncate">—</div>
+        <!-- CHANGED: div to a -->
+        <a id="appt-patient" href="#" class="text-[20px] md:text-[22px] font-bold text-ink tracking-tight truncate hover:underline hover:text-accent transition-colors block">—</a>
         <div id="appt-phone" class="text-[12px] md:text-[13px] text-ink-mute mt-0.5">—</div>
       </div>
     </div>

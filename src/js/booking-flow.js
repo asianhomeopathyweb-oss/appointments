@@ -16,6 +16,14 @@ import { esc } from './lib/format.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+// Helper to force Title Case
+function toTitleCase(str) {
+  if (!str) return '';
+  return String(str).trim().replace(/\s+/g, ' ').replace(/\S+/g, w =>
+    w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+  );
+}
+
 const state = {
   clinicId: null,
   clinic: null,
@@ -78,7 +86,12 @@ async function readQueryParams() {
 }
 
 async function selectPatient(patient) {
-  state.patient = { id: patient.id, name: patient.name, phone: patient.phone || '' };
+  // FORCE TITLE CASE HERE
+  state.patient = { 
+    id: patient.id, 
+    name: toTitleCase(patient.name), 
+    phone: patient.phone || '' 
+  };
 
   const searchWrap = $('#patient-search-wrap');
   const selectedWrap = $('#patient-selected-wrap');
@@ -209,10 +222,8 @@ function renderSlotGrid() {
     btn.addEventListener('click', async () => {
       const slot = btn.getAttribute('data-slot');
       
-      // Calculate how many slots this type needs (New vs Follow-up)
       const duration = slotsForType(state.type, state.schedule && state.schedule.newPatientSlots);
 
-      // Check if this slot + duration overlaps with anyone else
       const occ = await checkSlotOccupancy({
         clinicId: state.clinicId,
         dateISO: state.dateISO,
@@ -220,13 +231,12 @@ function renderSlotGrid() {
         durationSlots: duration
       });
 
-      // Warning for ANY existing booking overlapping this time
       if (occ.count > 0) {
         const who = occ.conflict?.patientName || 'another patient';
         const proceed = confirm(
           `This time conflicts with ${who}. Are you booking a family member or overbooking? Click OK to force.`
         );
-        if (!proceed) return; // Abort if they click Cancel
+        if (!proceed) return; 
       }
       
       state.slot = slot;
@@ -484,7 +494,7 @@ async function save() {
   const payload = {
     clinicId: state.clinicId,
     patientId: state.patient.id,
-    patientName: state.patient.name,
+    patientName: toTitleCase(state.patient.name), // FORCE TITLE CASE HERE
     patientPhone: state.patient.phone || '',
     date: state.dateISO,
     slot: state.slot,

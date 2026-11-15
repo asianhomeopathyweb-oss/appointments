@@ -57,7 +57,7 @@ import AppLayout from '../layouts/AppLayout.astro';
                 <th class="hidden md:table-cell px-2 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[100px]">Type</th>
                 <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase">Patient</th>
                 <th class="hidden md:table-cell px-4 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase w-[110px]">Phone</th>
-                <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase text-right w-[260px]">Actions</th>
+                <th class="px-4 md:px-6 py-3 md:py-4 text-[10px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase text-right w-[340px]">Actions</th>
               </tr>
             </thead>
             <tbody id="day-grid" class="divide-y divide-hairline"></tbody>
@@ -209,6 +209,10 @@ import AppLayout from '../layouts/AppLayout.astro';
     </div>
 
     <div id="ra-panel-actions" class="p-5 flex flex-col gap-3">
+      <button id="ra-btn-edit" type="button" class="w-full h-12 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
+        <i class="bi bi-pencil-square"></i> Edit Details
+      </button>
+
       <button id="ra-btn-complete" type="button" class="w-full h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[14px] font-bold flex items-center justify-center gap-2 shadow-sm transition-colors">
         <i class="bi bi-check-circle-fill"></i> Complete
       </button>
@@ -283,6 +287,94 @@ import AppLayout from '../layouts/AppLayout.astro';
         <button type="button" data-reason="rescheduled" class="h-10 rounded-xl text-[12.5px] font-semibold border border-hairline hover:border-red-300 hover:bg-red-50 transition-colors">Rescheduled</button>
       </div>
       <button id="ra-cancel-back" type="button" class="text-[12.5px] font-semibold text-ink-mute hover:text-ink transition-colors">← Back to actions</button>
+    </div>
+
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 5. NEW: Edit Appointment Modal -->
+  <!-- ========================================== -->
+  <div id="ea-backdrop" class="hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+  <div id="ea-modal" class="hidden fixed z-50 bg-white shadow-xl border border-hairline overflow-hidden flex-col
+           bottom-0 left-0 right-0 rounded-t-3xl w-full max-h-[90vh]
+           md:bottom-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2
+           md:w-[440px] md:rounded-2xl md:max-h-[85vh] md:overflow-y-auto">
+
+    <div class="px-5 py-4 border-b border-hairline bg-surface-hover/30 shrink-0 flex items-center justify-between">
+      <div>
+        <div class="text-[10px] font-bold tracking-widest text-ink-faint uppercase">Edit</div>
+        <div class="text-[16px] font-bold text-ink">Appointment Details</div>
+      </div>
+      <button id="ea-close" type="button" aria-label="Close"
+        class="w-8 h-8 grid place-items-center rounded-lg hover:bg-surface-hover text-ink-mute shrink-0">
+        <i class="bi bi-x-lg text-[16px]"></i>
+      </button>
+    </div>
+
+    <div class="p-5 space-y-4 overflow-y-auto flex-1">
+
+      <!-- Patient -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Patient</label>
+        <div class="relative">
+          <input id="ea-patient" type="text" autocomplete="off" placeholder="Search patient..."
+            class="w-full h-11 px-4 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+          <div id="ea-patient-results" class="hidden mt-1 rounded-xl border border-hairline bg-white overflow-hidden max-h-[150px] overflow-y-auto shadow-md absolute top-full left-0 right-0 z-20"></div>
+        </div>
+      </div>
+
+      <!-- Date & Slot -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Date</label>
+          <input id="ea-date" type="date"
+            class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Slot</label>
+          <select id="ea-slot"
+            class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"></select>
+        </div>
+      </div>
+
+      <!-- Type & Mode -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Type</label>
+          <select id="ea-type"
+            class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            <option value="new">New</option>
+            <option value="followup">Follow-up</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Mode</label>
+          <select id="ea-mode"
+            class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+            <option value="visit">Visit</option>
+            <option value="call">Call</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Duration -->
+      <div>
+        <label class="block text-[11px] font-bold tracking-widest text-ink-faint uppercase mb-1.5">Duration</label>
+        <select id="ea-duration"
+          class="w-full h-11 px-3 rounded-xl border border-hairline bg-surface text-[14px] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all">
+          <option value="1">1 slot</option>
+          <option value="2">2 slots</option>
+          <option value="3">3 slots</option>
+        </select>
+      </div>
+
+    </div>
+
+    <div class="px-5 py-4 border-t border-hairline bg-surface-hover/30 flex gap-3 shrink-0 pb-[env(safe-area-inset-bottom,20px)]">
+      <button id="ea-cancel" type="button"
+        class="flex-1 h-11 rounded-xl bg-white hover:bg-surface-hover text-ink border border-hairline text-[13px] font-semibold transition-colors">Cancel</button>
+      <button id="ea-save" type="button"
+        class="flex-1 h-11 rounded-xl bg-accent hover:bg-accent-hover text-white text-[13px] font-bold transition-colors shadow-sm">Save Changes</button>
     </div>
 
   </div>

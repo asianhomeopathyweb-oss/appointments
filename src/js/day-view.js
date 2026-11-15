@@ -5,7 +5,7 @@
 import { esc } from './lib/format.js';
 import { me } from './lib/auth-guards.js';
 import { getActiveClinicId, getActiveClinic } from './lib/clinic-context.js';
-import { subscribeForDay, updateStatus, softDelete, reschedule as rescheduleAppt } from './appointments.js';
+import { subscribeForDay, updateStatus, softDelete, reschedule as rescheduleAppt, updateAppointment } from './appointments.js';
 import { createFromVisit, findPendingForPatient, supersede } from './followups.js';
 import { create as createCall, subscribeMergedPending, resolve as resolveCall, convertScheduledToVisit } from './calls.js';
 import { searchByName } from './patients.js';
@@ -27,12 +27,17 @@ const state = {
   pendingCalls: { problem: [], scheduled: [] },
   unsubscribe: null,
   callsUnsubscribe: null,
-  activeAppt: null,       // appt shown in row action modal
+  activeAppt: null,
   activeCall: null,
-  billingAppt: null,      // appt shown in billing prompt (separate from activeAppt)
+  billingAppt: null,
   pendingFollowup: null,
   qcPatient: null,
-  cameFromFollowup: false
+  cameFromFollowup: false,
+  // Edit modal state
+  editAppt: null,          // original appointment being edited
+  editPatient: null,       // { id, name, phone } — may be same as original or changed
+  editChanged: false,
+  editSaving: false
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -55,6 +60,7 @@ export async function startDayView() {
   wireCallActionModal();
   wireBillingSync();
   wireBillingPromptModal();
+  wireEditModal();
 
   renderHeader();
   renderGrid();
@@ -184,15 +190,18 @@ function renderGrid() {
             ? `<span class="text-[11px] md:text-[13px] font-bold text-emerald-600 uppercase">Completed</span>`
             : `<span class="text-[11px] md:text-[13px] font-bold text-orange-500 uppercase flex items-center gap-1"><i class="bi bi-exclamation-circle-fill"></i> Unpaid</span>`;
         } else {
-          statusBadge = `
-            <div class="hidden md:flex flex-nowrap gap-2 justify-end">
-               <button data-action="seen" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+                    statusBadge = `
+            <div class="hidden md:flex flex-nowrap gap-1.5 justify-end">
+               <button data-action="edit" data-id="${a.id}" class="h-7 px-2.5 rounded-lg bg-surface-hover hover:bg-hairline text-ink-mute text-[10px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap">
+                 <i class="bi bi-pencil-square"></i> Edit
+               </button>
+               <button data-action="seen" data-id="${a.id}" class="h-7 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap">
                  <i class="bi bi-check-circle-fill"></i> Complete
                </button>
-               <button data-action="reschedule" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-orange-400 hover:bg-orange-500 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+               <button data-action="reschedule" data-id="${a.id}" class="h-7 px-2.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 text-[10px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap">
                  <i class="bi bi-clock-fill"></i> Reschedule
                </button>
-               <button data-action="delete" data-id="${a.id}" class="h-8 px-3 rounded-lg bg-red-500 hover:bg-red-600 text-white text-[11px] md:text-[12px] font-bold flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap">
+               <button data-action="delete" data-id="${a.id}" class="h-7 px-2.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap">
                  <i class="bi bi-trash-fill"></i> Delete
                </button>
             </div>`;
@@ -371,7 +380,7 @@ function wireBillingPromptModal() {
 }
 
 // ============================================================
-// CALLS PANEL (Right Side) — realtime, two sections
+// CALLS PANEL
 // ============================================================
 
 function startCallsSubscription() {
@@ -401,7 +410,6 @@ function stopCallsSubscription() {
   }
 }
 
-// Kept for backward compatibility — panel is realtime now.
 async function loadCallsPanel() {
   // no-op
 }
@@ -762,7 +770,7 @@ function wireQuickCallModal() {
 }
 
 // ============================================================
-// ROW ACTION HANDLERS (desktop buttons in grid)
+// ROW ACTION HANDLERS (desktop grid buttons)
 // ============================================================
 
 async function handleRowAction(action, id) {
@@ -771,6 +779,11 @@ async function handleRowAction(action, id) {
 
   if (action === 'rebook') {
     location.href = `/book?date=${encodeURIComponent(state.dateISO)}&slot=${encodeURIComponent(appt.slot)}`;
+    return;
+  }
+
+  if (action === 'edit') {
+    openEditModal(appt);
     return;
   }
 
@@ -865,8 +878,6 @@ function goDate(iso) {
   renderHeader();
   renderGrid();
   subscribe();
-  // Calls panel is realtime and scoped to today's clinic;
-  // no need to restart on date change.
 }
 
 function onEmptySlotClick(slot) {
@@ -923,6 +934,7 @@ function openRowModal(appt) {
   const btnCancel = $('#ra-btn-cancel');
   const btnBill = $('#ra-btn-bill');
   const btnNoBill = $('#ra-btn-no-bill');
+  const btnEdit = $('#ra-btn-edit');
 
   const notYet = !isSeen && !isCancelled;
   const unpaid = isSeen && !hasInvoice;
@@ -937,6 +949,16 @@ function openRowModal(appt) {
       btn.classList.add('opacity-40');
     }
   });
+
+  if (btnEdit) {
+    if (notYet) {
+      btnEdit.disabled = false;
+      btnEdit.classList.remove('hidden', 'opacity-40');
+    } else {
+      btnEdit.disabled = true;
+      btnEdit.classList.add('hidden');
+    }
+  }
 
   const showBilling = notYet || unpaid;
   [btnBill, btnNoBill].forEach(btn => {
@@ -994,6 +1016,13 @@ function wireRowModal() {
     el.addEventListener('click', () => {
       try { el.showPicker && el.showPicker(); } catch {}
     });
+  });
+
+  $('#ra-btn-edit')?.addEventListener('click', () => {
+    const appt = state.activeAppt;
+    if (!appt) return;
+    closeRowModal();
+    openEditModal(appt);
   });
 
   $('#ra-btn-complete')?.addEventListener('click', async () => {
@@ -1216,4 +1245,256 @@ async function populateRescheduleSlots() {
       : `${fmtSlot(s)} — Free`;
     return `<option value="${s}" ${isOriginal ? 'selected' : ''}>${esc(label)}</option>`;
   }).join('');
+}
+
+// ============================================================
+// EDIT APPOINTMENT MODAL
+// ============================================================
+
+function openEditModal(appt) {
+  state.editAppt = appt;
+  state.editPatient = { id: appt.patientId, name: appt.patientName, phone: appt.patientPhone || '' };
+  state.editChanged = false;
+  state.editSaving = false;
+
+  $('#ea-patient').value = appt.patientName || '';
+  $('#ea-patient-results').innerHTML = '';
+  $('#ea-patient-results').classList.add('hidden');
+
+  $('#ea-date').value = appt.date || state.dateISO;
+
+  const typeSel = $('#ea-type');
+  if (typeSel) typeSel.value = (appt.type === 'new' ? 'new' : 'followup');
+
+  const modeSel = $('#ea-mode');
+  if (modeSel) modeSel.value = (appt.mode === 'call' ? 'call' : 'visit');
+
+  const durSel = $('#ea-duration');
+  if (durSel) durSel.value = String(appt.durationSlots || 1);
+
+  updateEditSaveState();
+  populateEditSlots(appt);
+
+  $('#ea-backdrop').classList.remove('hidden');
+  $('#ea-modal').classList.remove('hidden');
+  $('#ea-modal').classList.add('flex');
+
+  setTimeout(() => $('#ea-patient').focus(), 150);
+}
+
+function closeEditModal() {
+  $('#ea-backdrop').classList.add('hidden');
+  $('#ea-modal').classList.add('hidden');
+  $('#ea-modal').classList.remove('flex');
+  state.editAppt = null;
+  state.editPatient = null;
+  state.editChanged = false;
+  state.editSaving = false;
+}
+
+async function populateEditSlots(appt) {
+  if (!state.schedule) return;
+  const dateInput = $('#ea-date');
+  const slotSelect = $('#ea-slot');
+  if (!dateInput || !slotSelect) return;
+
+  const pickedDate = dateInput.value || appt.date;
+  const slots = generateSlots(state.schedule);
+
+  slotSelect.innerHTML = `<option value="">Loading slots…</option>`;
+
+  const occupancies = await Promise.all(
+    slots.map(slot =>
+      checkSlotOccupancy({
+        clinicId: state.clinicId,
+        dateISO: pickedDate,
+        slot,
+        excludeApptId: appt.id
+      }).catch(() => ({ count: 0, conflict: null }))
+    )
+  );
+
+  slotSelect.innerHTML = slots.map((s, i) => {
+    const occ = occupancies[i];
+    const isOriginal = s === appt.slot && pickedDate === appt.date;
+    const label = occ.count > 0
+      ? `${fmtSlot(s)} — Booked (${occ.conflict?.patientName || 'another'})`
+      : `${fmtSlot(s)} — Free`;
+    return `<option value="${s}" ${isOriginal ? 'selected' : ''}>${esc(label)}</option>`;
+  }).join('');
+
+  updateEditSaveState();
+}
+
+function updateEditSaveState() {
+  const saveBtn = $('#ea-save');
+  if (!saveBtn || !state.editAppt) return;
+
+  const orig = state.editAppt;
+  const pickedPatient = state.editPatient || { id: orig.patientId };
+  const pickedDate = $('#ea-date').value;
+  const pickedSlot = $('#ea-slot').value;
+  const pickedType = $('#ea-type').value;
+  const pickedMode = $('#ea-mode').value;
+  const pickedDuration = Number($('#ea-duration').value);
+
+  const origDuration = orig.durationSlots || 1;
+
+  const changed =
+    pickedPatient.id !== orig.patientId ||
+    pickedDate !== orig.date ||
+    pickedSlot !== orig.slot ||
+    pickedType !== (orig.type === 'new' ? 'new' : 'followup') ||
+    pickedMode !== (orig.mode === 'call' ? 'call' : 'visit') ||
+    pickedDuration !== origDuration;
+
+  state.editChanged = changed;
+
+  const valid = !!pickedPatient.id && !!pickedSlot && !!pickedDate;
+
+  saveBtn.disabled = !(changed && valid && !state.editSaving);
+}
+
+async function handleEditSave() {
+  if (state.editSaving) return;
+  if (!state.editAppt) return;
+  if (!state.editPatient) return;
+
+  const appt = state.editAppt;
+  const pickedDate = $('#ea-date').value;
+  const pickedSlot = $('#ea-slot').value;
+  if (!pickedDate || !pickedSlot) {
+    showToast('Pick date and slot', 'error');
+    return;
+  }
+
+  const dateChanged = pickedDate !== appt.date;
+  const slotChanged = pickedSlot !== appt.slot;
+
+  if (dateChanged || slotChanged) {
+    try {
+      const occ = await checkSlotOccupancy({
+        clinicId: state.clinicId,
+        dateISO: pickedDate,
+        slot: pickedSlot,
+        excludeApptId: appt.id
+      });
+
+      if (occ.count > 0) {
+        const who = occ.conflict?.patientName || 'another patient';
+        const proceed = confirm(
+          `This slot already has ${occ.count} booking${occ.count > 1 ? 's' : ''} (${who}). Save anyway?`
+        );
+        if (!proceed) return;
+      }
+    } catch (err) {
+      console.error('[edit] occupancy check failed', err);
+    }
+  }
+
+  state.editSaving = true;
+  const saveBtn = $('#ea-save');
+  const origText = saveBtn.textContent;
+  saveBtn.textContent = 'Saving...';
+  saveBtn.disabled = true;
+
+  try {
+    const changes = {
+      patientId: state.editPatient.id,
+      patientName: state.editPatient.name,
+      patientPhone: state.editPatient.phone || '',
+      date: pickedDate,
+      slot: pickedSlot,
+      type: $('#ea-type').value,
+      mode: $('#ea-mode').value,
+      durationSlots: Number($('#ea-duration').value)
+    };
+
+    await updateAppointment(appt.id, changes);
+
+    try { invalidateOccupancy(state.clinicId, appt.date); } catch {}
+    if (dateChanged) {
+      try { invalidateOccupancy(state.clinicId, pickedDate); } catch {}
+    }
+
+    showToast('Appointment updated', 'success');
+    closeEditModal();
+  } catch (err) {
+    console.error('[edit] save failed', err);
+    showToast(err.message || 'Could not save changes', 'error');
+    state.editSaving = false;
+    saveBtn.textContent = origText;
+    updateEditSaveState();
+  }
+}
+
+function wireEditModal() {
+  $('#ea-close')?.addEventListener('click', closeEditModal);
+  $('#ea-cancel')?.addEventListener('click', closeEditModal);
+  $('#ea-backdrop')?.addEventListener('click', closeEditModal);
+
+  const patientIn = $('#ea-patient');
+  const resultsEl = $('#ea-patient-results');
+  let timer = null;
+
+  patientIn?.addEventListener('input', (e) => {
+    clearTimeout(timer);
+    const q = e.target.value.trim();
+    state.editPatient = null;
+    updateEditSaveState();
+
+    if (q.length < 2) {
+      resultsEl.innerHTML = '';
+      resultsEl.classList.add('hidden');
+      return;
+    }
+
+    timer = setTimeout(async () => {
+      try {
+        const matches = await searchByName(state.clinicId, q, 8);
+        if (matches.length === 0) {
+          resultsEl.innerHTML = `<div class="px-3 py-2 text-[12px] text-ink-faint">No matches.</div>`;
+          resultsEl.classList.remove('hidden');
+          return;
+        }
+        resultsEl.innerHTML = matches.map(p => `
+          <div data-pid="${esc(p.id)}" data-pname="${esc(p.name)}" data-pphone="${esc(p.phone || '')}" class="px-3 py-2 hover:bg-surface-hover cursor-pointer border-b border-hairline last:border-0">
+            <div class="text-[13px] font-bold text-ink">${esc(p.name)}</div>
+            ${p.phone ? `<div class="text-[11px] text-ink-mute">${esc(p.phone)}</div>` : ''}
+          </div>`).join('');
+        resultsEl.classList.remove('hidden');
+      } catch (err) {
+        console.error('[edit] patient search failed', err);
+      }
+    }, 250);
+  });
+
+  resultsEl?.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-pid]');
+    if (!row) return;
+    state.editPatient = {
+      id: row.getAttribute('data-pid'),
+      name: row.getAttribute('data-pname'),
+      phone: row.getAttribute('data-pphone')
+    };
+    patientIn.value = state.editPatient.name;
+    resultsEl.innerHTML = '';
+    resultsEl.classList.add('hidden');
+    updateEditSaveState();
+  });
+
+  const dateIn = $('#ea-date');
+  dateIn?.addEventListener('click', () => {
+    try { dateIn.showPicker && dateIn.showPicker(); } catch {}
+  });
+  dateIn?.addEventListener('change', () => {
+    if (state.editAppt) populateEditSlots(state.editAppt);
+    updateEditSaveState();
+  });
+
+  ['#ea-slot', '#ea-type', '#ea-mode', '#ea-duration'].forEach(sel => {
+    $(sel)?.addEventListener('change', updateEditSaveState);
+  });
+
+  $('#ea-save')?.addEventListener('click', handleEditSave);
 }

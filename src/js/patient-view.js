@@ -184,7 +184,7 @@ function apptRow(a) {
         <div class="text-[11px] text-ink-faint tnum">${esc(fmtSlot(a.slot))}</div>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-[13.5px] font-medium ${nameStyle} truncate">${esc(meta.join(' &middot; '))}</div>
+<div class="text-[13.5px] font-medium ${nameStyle} truncate">${esc(meta.join(' · '))}</div>
       </div>
       <div class="shrink-0">${dot}</div>
     </div>`;

@@ -171,3 +171,43 @@ export async function softDelete(id) {
   });
   try { await writeAudit("appointment_deleted", id); } catch {}
 }
+
+// ============================================================
+// NEW: Full Edit
+// ============================================================
+
+/**
+ * Update any editable field of an appointment.
+ *
+ * Only writes the fields present in `changes`. Does NOT touch:
+ *   - notes (preserve invoice tags)
+ *   - status / cancelledReason (use updateStatus)
+ *   - createdAt / createdBy (immutable)
+ *   - deleted
+ *
+ * @param {string} id
+ * @param {object} changes
+ *        Fields: patientId, patientName, patientPhone,
+ *                date, slot, type, mode, durationSlots
+ */
+export async function updateAppointment(id, changes) {
+  if (!id) throw new Error('updateAppointment: id required');
+  if (!changes || typeof changes !== 'object') {
+    throw new Error('updateAppointment: changes object required');
+  }
+
+  const allowed = ['patientId', 'patientName', 'patientPhone', 'date', 'slot', 'type', 'mode', 'durationSlots'];
+  const patch = {};
+  for (const key of allowed) {
+    if (changes[key] !== undefined) patch[key] = changes[key];
+  }
+  if (Object.keys(patch).length === 0) {
+    throw new Error('updateAppointment: no valid fields to update');
+  }
+
+  patch.updatedAt = serverTimestamp();
+
+  await updateDoc(doc(db, 'appointments', id), patch);
+  try { await writeAudit('appointment_edited', id); } catch {}
+  return true;
+}

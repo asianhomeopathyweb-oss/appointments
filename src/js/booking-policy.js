@@ -67,7 +67,7 @@ export function invalidateOccupancy(clinicId, dateISO) {
   _cache.delete(_cacheKey(clinicId, dateISO));
 }
 
-export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptId }) {
+export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptId, durationSlots = 1 }) {
   if (!clinicId || !dateISO || !slot) return { count: 0, conflict: null };
 
   const rows = await _loadDay(clinicId, dateISO);
@@ -78,6 +78,10 @@ export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptI
   const schedule = scheduleSnap.exists() ? scheduleSnap.data() : null;
   const allSlots = schedule ? generateSlots(schedule) : [];
   const targetIndex = allSlots.indexOf(slot);
+
+  if (targetIndex === -1) return { count: 0, conflict: null };
+
+  const targetEndIndex = targetIndex + durationSlots;
 
   let count = 0;
   let conflict = null;
@@ -92,12 +96,12 @@ export async function checkSlotOccupancy({ clinicId, dateISO, slot, excludeApptI
     const duration = a.durationSlots || 1;
     const endIndex = startIndex + duration;
 
-    if (targetIndex !== -1 && targetIndex >= startIndex && targetIndex < endIndex) {
+    // Check for ANY overlap between the new duration and the existing duration
+    const overlaps = (startIndex < targetEndIndex) && (endIndex > targetIndex);
+
+    if (overlaps) {
       count++;
-
       const isDurationConflict = targetIndex !== startIndex;
-
-      // Prioritize the duration conflict in the conflict object
       if (!conflict || (isDurationConflict && !conflict.isDurationConflict)) {
         conflict = {
           id: a.id,

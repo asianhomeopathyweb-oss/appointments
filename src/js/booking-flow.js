@@ -209,18 +209,22 @@ function renderSlotGrid() {
     btn.addEventListener('click', async () => {
       const slot = btn.getAttribute('data-slot');
       
-      // Check if this slot is inside another patient's block
+      // Calculate how many slots this type needs (New vs Follow-up)
+      const duration = slotsForType(state.type, state.schedule && state.schedule.newPatientSlots);
+
+      // Check if this slot + duration overlaps with anyone else
       const occ = await checkSlotOccupancy({
         clinicId: state.clinicId,
         dateISO: state.dateISO,
-        slot: slot
+        slot: slot,
+        durationSlots: duration
       });
 
-      // Warning for ANY existing booking in this slot
+      // Warning for ANY existing booking overlapping this time
       if (occ.count > 0) {
         const who = occ.conflict?.patientName || 'another patient';
         const proceed = confirm(
-          `This time is already booked by ${who}. Are you booking a family member? Click OK to force double-book.`
+          `This time conflicts with ${who}. Are you booking a family member or overbooking? Click OK to force.`
         );
         if (!proceed) return; // Abort if they click Cancel
       }
@@ -456,7 +460,8 @@ async function save() {
     occ = await checkSlotOccupancy({
       clinicId: state.clinicId,
       dateISO: state.dateISO,
-      slot: state.slot
+      slot: state.slot,
+      durationSlots: duration
     });
   } catch {
     occ = { count: 0, conflict: null };

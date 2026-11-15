@@ -202,3 +202,31 @@ export async function addNote(id, note) {
     updatedAt: serverTimestamp()
   });
 }
+
+// ============================================================
+// NEW: Activity Log
+// ============================================================
+
+/**
+ * Fetch recent follow-up activity (any follow-up that is no
+ * longer 'pending'), sorted by newest updatedAt first.
+ * 
+ * @param {string} clinicId 
+ * @param {number} limit 
+ * @returns {Promise<Array>}
+ */
+export async function listRecentActivity(clinicId, limit = 500) {
+  const all = await fetchAll(clinicId);
+  
+  // Get follow-ups that are no longer pending
+  const resolved = all.filter((x) => x.status !== 'pending');
+  
+  // Sort them by the time they were updated (newest first)
+  resolved.sort((a, b) => {
+    const aTime = a.updatedAt?.toMillis?.() || 0;
+    const bTime = b.updatedAt?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+  
+  return resolved.slice(0, limit);
+}

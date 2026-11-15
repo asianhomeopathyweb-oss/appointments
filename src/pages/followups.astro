@@ -2,50 +2,74 @@
 import AppLayout from '../layouts/AppLayout.astro';
 ---
 <AppLayout title="Follow-ups">
-  <div class="w-full max-w-[1200px] mx-auto px-4 md:px-8 py-6 flex flex-col h-full bg-surface">
+  <div class="w-full max-w-[1400px] mx-auto px-4 md:px-8 py-6 flex flex-col h-[calc(100vh-52px)] md:h-full bg-surface md:overflow-hidden overflow-y-auto">
 
-    <!-- Premium Floating Date Strip -->
-    <div class="flex items-center gap-2 md:gap-3 mb-6 w-full">
-      <button id="fu-prev" class="w-9 h-9 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
-        <i class="bi bi-chevron-left text-[14px] md:text-[16px]"></i>
-      </button>
-
-      <!-- The Strip Container -->
-      <div id="fu-strip" class="flex-1 flex gap-1 md:gap-2 bg-white border border-hairline p-1 md:p-1.5 rounded-2xl shadow-sm overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <!-- Filled by JS -->
-      </div>
-
-      <button id="fu-next" class="w-9 h-9 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
-        <i class="bi bi-chevron-right text-[14px] md:text-[16px]"></i>
-      </button>
+    <!-- Mobile Tabs -->
+    <div class="md:hidden flex p-1 bg-surface-hover rounded-xl mb-4 shrink-0">
+      <button id="tab-pending" class="flex-1 h-9 rounded-lg text-[13px] font-bold bg-white text-ink shadow-sm transition-all">Pending</button>
+      <button id="tab-activity" class="flex-1 h-9 rounded-lg text-[13px] font-bold text-ink-mute hover:text-ink transition-all">Recent Activity</button>
     </div>
 
-    <!-- Header Info -->
-    <div class="flex items-center justify-between mb-4 px-1 md:px-2">
-      <div class="flex items-center gap-3">
-        <div class="text-[18px] md:text-[22px] font-bold text-ink tracking-tight">
-          <span id="fu-date">—</span>
+    <!-- Main Grid -->
+    <div class="flex flex-col md:flex-row gap-6 flex-1 min-h-0">
+
+      <!-- LEFT COLUMN: Pending Follow-ups -->
+      <div id="panel-pending" class="flex-1 flex flex-col h-full min-h-0">
+        
+        <!-- Premium Floating Date Strip -->
+        <div class="flex items-center gap-2 md:gap-3 mb-6 w-full shrink-0">
+          <button id="fu-prev" class="w-9 h-9 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+            <i class="bi bi-chevron-left text-[14px] md:text-[16px]"></i>
+          </button>
+
+          <!-- The Strip Container -->
+          <div id="fu-strip" class="flex-1 flex gap-1 md:gap-2 bg-white border border-hairline p-1 md:p-1.5 rounded-2xl shadow-sm overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <!-- Filled by JS -->
+          </div>
+
+          <button id="fu-next" class="w-9 h-9 md:w-10 md:h-10 shrink-0 grid place-items-center rounded-full bg-white border border-hairline shadow-sm hover:border-accent hover:text-accent text-ink-mute transition-all">
+            <i class="bi bi-chevron-right text-[14px] md:text-[16px]"></i>
+          </button>
         </div>
-        <div class="text-[12px] md:text-[13px] font-medium text-ink-faint px-3 py-1 bg-surface-hover rounded-full" id="fu-sub">—</div>
-      </div>
-      <button id="fu-today" class="text-[12px] md:text-[13px] font-bold text-accent hover:underline hidden">
-        Go to Today
-      </button>
-    </div>
 
-    <!-- List Container -->
-    <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline">
-      <div id="fu-list" class="divide-y divide-hairline">
-        <!-- Filled by JS -->
-      </div>
-    </div>
+        <!-- Header Info -->
+        <div class="flex items-center justify-between mb-4 px-1 md:px-2 shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="text-[18px] md:text-[22px] font-bold text-ink tracking-tight">
+              <span id="fu-date">—</span>
+            </div>
+            <div class="text-[12px] md:text-[13px] font-medium text-ink-faint px-3 py-1 bg-surface-hover rounded-full" id="fu-sub">—</div>
+          </div>
+          <button id="fu-today" class="text-[12px] md:text-[13px] font-bold text-accent hover:underline hidden">
+            Go to Today
+          </button>
+        </div>
 
+        <!-- List Container -->
+        <div class="flex-1 overflow-y-auto bg-white rounded-2xl shadow-sm border border-hairline mb-4 md:mb-0">
+          <div id="fu-list" class="divide-y divide-hairline">
+            <!-- Filled by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Recent Activity -->
+      <div id="panel-activity" class="hidden md:flex w-full md:w-[320px] lg:w-[400px] shrink-0 flex-col bg-white rounded-2xl shadow-sm border border-hairline overflow-hidden h-full">
+        <div class="border-b border-hairline bg-surface-hover/30 shrink-0 flex items-center justify-between px-4 md:px-6 py-3 md:py-4">
+          <div class="text-[11px] md:text-[12px] font-bold tracking-widest text-ink-mute uppercase">Activity on this date</div>
+        </div>
+        <div id="fu-activity-list" class="flex-1 overflow-y-auto divide-y divide-hairline/50">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <script>
     import { requireAuth } from '../js/lib/auth-guards.js';
     import { getActiveClinicId, getActiveClinic } from '../js/lib/clinic-context.js';
-    import { listForDate, listDue } from '../js/followups.js';
+    import { listForDate, listDue, listRecentActivity } from '../js/followups.js';
     import { todayISO, addDays, fmtDate, fmtDayShort, isToday, isoToDate } from '../js/date-utils.js';
 
     const $ = (sel) => document.querySelector(sel);
@@ -55,7 +79,9 @@ import AppLayout from '../layouts/AppLayout.astro';
       clinic: null,
       dateISO: todayISO(),
       items: [],
-      markers: new Set()
+      markers: new Set(),
+      activity: [],
+      activeTab: 'pending'
     };
 
     function esc(s) {
@@ -64,14 +90,13 @@ import AppLayout from '../layouts/AppLayout.astro';
         .split('"').join('&quot;').split("'").join('&#39;');
     }
 
+    // ---------- RENDER: HEADER & STRIP ----------
     function renderHeader() {
       const dateEl = $('#fu-date');
-      const clinicEl = $('#fu-clinic');
       const subEl = $('#fu-sub');
       const todayBtn = $('#fu-today');
 
       if (dateEl) dateEl.textContent = fmtDate(state.dateISO);
-      if (clinicEl && state.clinic) clinicEl.textContent = state.clinic.name;
       if (subEl) subEl.textContent = state.items.length === 0 ? 'No follow-ups' : `${state.items.length} follow-up${state.items.length === 1 ? '' : 's'}`;
       if (todayBtn) todayBtn.hidden = isToday(state.dateISO);
     }
@@ -81,7 +106,6 @@ import AppLayout from '../layouts/AppLayout.astro';
       if (!root) return;
       
       const days = [];
-      // Start 3 days before the selected date
       for (let i = 0; i < 7; i++) days.push(addDays(state.dateISO, i - 3));
 
       root.innerHTML = days.map((iso) => {
@@ -112,6 +136,7 @@ import AppLayout from '../layouts/AppLayout.astro';
       });
     }
 
+    // ---------- RENDER: PENDING LIST ----------
     function renderList() {
       const root = $('#fu-list');
       if (!root) return;
@@ -148,16 +173,103 @@ import AppLayout from '../layouts/AppLayout.astro';
       });
     }
 
+    // ---------- RENDER: ACTIVITY LIST ----------
+    function renderActivity() {
+      const root = $('#fu-activity-list');
+      if (!root) return;
+
+      if (state.activity.length === 0) {
+        root.innerHTML = `<div class="p-8 text-center text-[13px] text-ink-faint">No actions taken on this date.</div>`;
+        return;
+      }
+
+      root.innerHTML = state.activity.map((f) => {
+        const history = f.history || [];
+        const resolveAction = history.slice().reverse().find(h => 
+          ['done', 'cancelled', 'superseded', 'moved'].includes(h.action)
+        ) || history[history.length - 1] || { action: 'resolved', note: '' };
+
+        const action = resolveAction.action;
+        let note = resolveAction.note || '';
+        
+        let badgeColor = 'bg-surface-hover text-ink-mute';
+        let label = action;
+        
+        if (action === 'done') { 
+          badgeColor = 'bg-emerald-50 text-emerald-700'; 
+          label = 'DONE'; 
+        } else if (action === 'cancelled') { 
+          badgeColor = 'bg-red-50 text-red-700'; 
+          label = 'CANCELLED'; 
+        } else if (action === 'superseded') { 
+          badgeColor = 'bg-blue-50 text-blue-700'; 
+          label = 'VISITED'; 
+        } else if (action === 'moved') { 
+          badgeColor = 'bg-orange-50 text-orange-700'; 
+          label = 'RESCHEDULED'; 
+        }
+
+        // Custom note text based on action
+        if (!note) {
+          if (action === 'superseded' && resolveAction.to) {
+            note = `Visited early. Next due: ${fmtDate(resolveAction.to)}`;
+          } else if (action === 'moved' && resolveAction.to) {
+            note = `Moved to ${fmtDate(resolveAction.to)}`;
+          } else if (action === 'done') {
+            note = 'Follow-up completed';
+          } else if (action === 'cancelled') {
+            note = 'Follow-up cancelled';
+          }
+        }
+
+        const timeStr = f.updatedAt?.toDate?.()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '';
+
+        return `
+          <div class="px-4 py-3 hover:bg-surface-hover/30 transition-colors border-b border-hairline/50 last:border-b-0">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="text-[13px] font-bold text-ink truncate">${esc(f.patientName || 'Patient')}</div>
+                <div class="text-[11px] text-ink-mute line-clamp-2 mt-0.5">${esc(note)}</div>
+              </div>
+              <div class="shrink-0 flex flex-col items-end gap-1">
+                <span class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${badgeColor}">${label}</span>
+                <span class="text-[9px] text-ink-faint font-medium">${timeStr}</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ---------- DATA LOADING ----------
     async function load() {
       try {
+        // 1. Load Pending for current date
         state.items = await listForDate(state.clinicId, state.dateISO);
+        
+        // 2. Load Activity for this specific date
+        const allRecent = await listRecentActivity(state.clinicId, 500);
+        
+        // Filter to only those actioned on the selected date
+        state.activity = allRecent.filter(f => {
+          if (!f.updatedAt || typeof f.updatedAt.toDate !== 'function') return false;
+          const d = f.updatedAt.toDate();
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}` === state.dateISO;
+        });
+
       } catch (err) {
+        console.error('Load failed', err);
         state.items = [];
+        state.activity = [];
       }
       await loadMarkers();
+      
       renderHeader();
       renderStrip();
       renderList();
+      renderActivity();
     }
 
     async function loadMarkers() {
@@ -175,6 +287,43 @@ import AppLayout from '../layouts/AppLayout.astro';
       url.searchParams.set('date', iso);
       history.replaceState(null, '', url);
       load();
+    }
+
+    // ---------- MOBILE TABS ----------
+    function wireTabs() {
+      const btnPending = $('#tab-pending');
+      const btnActivity = $('#tab-activity');
+      const panelPending = $('#panel-pending');
+      const panelActivity = $('#panel-activity');
+
+      if (!btnPending || !btnActivity || !panelPending || !panelActivity) return;
+
+      function setTab(tab) {
+        state.activeTab = tab;
+        
+        if (tab === 'pending') {
+          // Buttons
+          btnPending.className = 'flex-1 h-9 rounded-lg text-[13px] font-bold bg-white text-ink shadow-sm transition-all';
+          btnActivity.className = 'flex-1 h-9 rounded-lg text-[13px] font-bold text-ink-mute hover:text-ink transition-all';
+          // Panels
+          panelPending.classList.remove('hidden');
+          panelPending.classList.add('flex');
+          panelActivity.classList.add('hidden');
+          panelActivity.classList.remove('flex');
+        } else {
+          // Buttons
+          btnActivity.className = 'flex-1 h-9 rounded-lg text-[13px] font-bold bg-white text-ink shadow-sm transition-all';
+          btnPending.className = 'flex-1 h-9 rounded-lg text-[13px] font-bold text-ink-mute hover:text-ink transition-all';
+          // Panels
+          panelActivity.classList.remove('hidden');
+          panelActivity.classList.add('flex');
+          panelPending.classList.add('hidden');
+          panelPending.classList.remove('flex');
+        }
+      }
+
+      btnPending.addEventListener('click', () => setTab('pending'));
+      btnActivity.addEventListener('click', () => setTab('activity'));
     }
 
     function wireNav() {
@@ -196,6 +345,7 @@ import AppLayout from '../layouts/AppLayout.astro';
       const d = p.get('date');
       if (d) state.dateISO = d;
 
+      wireTabs();
       wireNav();
       await load();
     })();
